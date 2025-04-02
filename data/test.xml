@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ENVELOPE>
+    <HEADER>
+        <TALLYREQUEST>Import Data</TALLYREQUEST>
+    </HEADER>
+    <BODY>
+        <IMPORTDATA>
+            <REQUESTDESC>
+                <REPORTNAME>All Vouchers</REPORTNAME>
+                <STATICVARIABLES></STATICVARIABLES>
+            </REQUESTDESC>
+            <REQUESTDATA>
+                <TALLYMESSAGE xmlns="TallyDeveloper">
+                    <VOUCHER VCHTYPE="Sales" ACTION="Create" OBJVIEW="Invoice Voucher View">
+                        <DATE>20250401</DATE>
+                        <EFFECTIVEDATE>20250401</EFFECTIVEDATE>
+                        <VOUCHERTYPENAME>Sales</VOUCHERTYPENAME>
+                        <VOUCHERNUMBER>TEST-001</VOUCHERNUMBER>
+                        <PARTYLEDGERNAME>Online Domestic Shop</PARTYLEDGERNAME>
+                        <NARRATION>Test Sale for Natural Organic Day Pad</NARRATION>
+                        <ALLINVENTORYENTRIES.LIST>
+                            <STOCKITEMNAME>Natural Organic Day Pad</STOCKITEMNAME>
+                            <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>
+                            <RATE>100.00/Nos</RATE>
+                            <AMOUNT>100.00</AMOUNT>
+                            <ACTUALQTY>1 Nos</ACTUALQTY>
+                            <BILLEDQTY>1 Nos</BILLEDQTY>
+                            <ACCOUNTINGALLOCATIONS.LIST>
+                                <LEDGERNAME>Local Exempt Sales</LEDGERNAME>
+                                <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>
+                                <AMOUNT>100.00</AMOUNT>
+                            </ACCOUNTINGALLOCATIONS.LIST>
+                        </ALLINVENTORYENTRIES.LIST>
+                        <LEDGERENTRIES.LIST>
+                            <LEDGERNAME>Online Domestic Shop</LEDGERNAME>
+                            <ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE>
+                            <AMOUNT>-100.00</AMOUNT>
+                        </LEDGERENTRIES.LIST>
+                    </VOUCHER>
+                </TALLYMESSAGE>
+            </REQUESTDATA>
+        </IMPORTDATA>
+    </BODY>
+</ENVELOPE>
