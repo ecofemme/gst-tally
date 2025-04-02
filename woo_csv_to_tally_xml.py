@@ -156,7 +156,7 @@ def read_woo_csv(csv_file):
                         customer_email = row["Billing Email Address"] or "N/A"
                         amount = float(row["Order Total"].replace(",", ""))
                         country = row["Billing Country"]
-                        party_ledger = "Online Domestic Shop" if country == "IN" else "ONLINE SHOP INTERNATIONAL"
+                        party_ledger = "Online Shop Domestic" if country == "IN" else "ONLINE SHOP INTERNATIONAL"
                         is_domestic = (country == "IN")
                         
                         sales_data[order_id] = {
@@ -248,8 +248,7 @@ def create_tally_xml(sales_data, base_name="Sales"):
         # Inventory entries without batch allocations
         for product in sale["products"]:
             inventory_entry = ET.SubElement(voucher, "ALLINVENTORYENTRIES.LIST")
-            ET.SubElement(inventory_entry, "STOCKITEMNAME").text = product["name"]
-            ET.SubElement(inventory_entry, "ISDEEMEDPOSITIVE").text = "No"
+            ET.SubElement(inventory_entry, "STOCKITEMNAME").text = product["name"] + "\r\n"            ET.SubElement(inventory_entry, "ISDEEMEDPOSITIVE").text = "No"
             ET.SubElement(inventory_entry, "RATE").text = f"{product['base_rate']:.2f}/Nos"
             ET.SubElement(inventory_entry, "AMOUNT").text = f"{product['base_amount']:.2f}"
             ET.SubElement(inventory_entry, "ACTUALQTY").text = f"{product['quantity']} Nos"
