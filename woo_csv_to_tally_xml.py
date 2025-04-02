@@ -248,7 +248,7 @@ def create_tally_xml(sales_data, base_name="Sales"):
         # Inventory entries without batch allocations
         for product in sale["products"]:
             inventory_entry = ET.SubElement(voucher, "ALLINVENTORYENTRIES.LIST")
-            ET.SubElement(inventory_entry, "STOCKITEMNAME").text = product["name"] + "&#13;&#10;"            
+            ET.SubElement(inventory_entry, "STOCKITEMNAME").text = product["name"] + "&#xD;&#xA;"           
             ET.SubElement(inventory_entry, "ISDEEMEDPOSITIVE").text = "No"
             ET.SubElement(inventory_entry, "RATE").text = f"{product['base_rate']:.2f}/Nos"
             ET.SubElement(inventory_entry, "AMOUNT").text = f"{product['base_amount']:.2f}"
