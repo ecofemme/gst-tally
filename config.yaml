@@ -1,0 +1,3 @@
+mapping_file: product_mapping.csv
+woo_prefix: woo_orders
+tally_prefix: sales

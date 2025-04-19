@@ -10,19 +10,23 @@ import yaml
 
 
 def load_config(config_file="config.yaml"):
-    default_config = {"mapping_file": "product_mapping.csv"}
     if not os.path.exists(config_file):
-        with open(config_file, "w") as f:
-            yaml.dump(default_config, f, default_flow_style=False)
-        print(f"Created default configuration file: {config_file}")
-        return default_config
+        print(f"Error: Configuration file '{config_file}' not found!")
+        return None
     try:
         with open(config_file, "r") as f:
             config = yaml.safe_load(f)
-            return config
+        required_fields = ["mapping_file", "woo_prefix", "tally_prefix"]
+        missing_fields = [field for field in required_fields if field not in config]
+        if missing_fields:
+            print(
+                f"Error: Missing required configuration fields: {', '.join(missing_fields)}"
+            )
+            return None
+        return config
     except Exception as e:
         print(f"Error loading configuration: {e}")
-        return default_config
+        return None
 
 
 def load_product_mapping(mapping_file):
@@ -288,8 +292,8 @@ def create_tally_xml(sales_data, base_name="Sales"):
         ET.SubElement(party_entry, "LEDGERNAME").text = sale["party_ledger"]
         ET.SubElement(party_entry, "ISDEEMEDPOSITIVE").text = "Yes"
         ET.SubElement(party_entry, "AMOUNT").text = f"-{sale['amount']:.2f}"
-    output_filename = get_next_filename(base_name=base_name, extension=".xml")
-    print(f"Attempting to write {output_filename}...")
+    output_filename = f"{base_name}.xml"
+    print(f"Writing to {output_filename}...")
     try:
         tree = ET.ElementTree(envelope)
         tree.write(output_filename, encoding="utf-8", xml_declaration=True)
@@ -305,54 +309,54 @@ def main():
     parser = argparse.ArgumentParser(
         description="Convert WooCommerce CSV to Tally XML with GST calculations"
     )
-    parser.add_argument("csv_file", nargs="?", help="Path to WooCommerce CSV file")
     parser.add_argument(
         "-c", "--config", default="config.yaml", help="Path to configuration file"
     )
     args = parser.parse_args()
     config = load_config(args.config)
-    mapping_file = config.get("mapping_file", "product_mapping.csv")
-    csv_file = args.csv_file
-    if not csv_file:
-        csv_file = input(
-            "Enter the name of your WooCommerce CSV file (e.g., woo_orders.csv): "
-        ).strip()
+    if not config:
+        return
+    mapping_file = config["mapping_file"]
+    woo_prefix = config["woo_prefix"]
+    tally_prefix = config["tally_prefix"]
     if not os.path.exists(mapping_file):
         print(f"Error: Mapping file '{mapping_file}' not found!")
-        return
-    if not os.path.exists(csv_file):
-        print(f"Error: CSV file '{csv_file}' not found!")
         return
     woo_to_tally, tally_to_gst, attributes_map = load_product_mapping(mapping_file)
     if not woo_to_tally or not tally_to_gst or not attributes_map:
         print("Failed to load product mapping. Exiting.")
         return
-    existing_files = glob.glob("*.xml")
-    print(
-        "Existing XML files in directory:", existing_files if existing_files else "None"
-    )
-    sales_data = read_woo_csv(csv_file, woo_to_tally, tally_to_gst, attributes_map)
-    if sales_data:
-        domestic_count = len([sale for sale in sales_data if sale["is_domestic"]])
-        international_count = len(
-            [sale for sale in sales_data if not sale["is_domestic"]]
-        )
-        print(f"Domestic orders detected: {domestic_count}")
-        print(f"International orders detected: {international_count}")
-        sales_file = create_tally_xml(sales_data)
-        total_processed = len(sales_data)
-        print(f"Processed {total_processed} completed orders.")
-        if sales_file:
-            print(
-                f"All orders (domestic and international) saved to '{sales_file}' ({total_processed} orders)."
+    csv_files = glob.glob(f"{woo_prefix}*.csv")
+    if not csv_files:
+        print(f"No CSV files found with '{woo_prefix}' prefix.")
+        return
+    print(f"Found {len(csv_files)} CSV files to process.")
+    for csv_file in csv_files:
+        filename = os.path.basename(csv_file)
+        suffix = filename.replace(woo_prefix, "").replace(".csv", "")
+        base_name = f"{tally_prefix}{suffix}"
+        print(f"\nProcessing {csv_file}...")
+        sales_data = read_woo_csv(csv_file, woo_to_tally, tally_to_gst, attributes_map)
+        if sales_data:
+            domestic_count = len([sale for sale in sales_data if sale["is_domestic"]])
+            international_count = len(
+                [sale for sale in sales_data if not sale["is_domestic"]]
             )
+            print(f"Domestic orders detected: {domestic_count}")
+            print(f"International orders detected: {international_count}")
+            sales_file = create_tally_xml(sales_data, base_name=base_name)
+            total_processed = len(sales_data)
+            print(f"Processed {total_processed} completed orders.")
+            if sales_file:
+                print(
+                    f"All orders (domestic and international) saved to '{sales_file}' ({total_processed} orders)."
+                )
+            else:
+                print("No sales file generated for this CSV.")
         else:
-            print("No sales file generated.")
-        print("You can now import this XML file into Tally.")
-    else:
-        print("No valid sales data processed. Check your CSV file.")
+            print("No valid sales data processed for this CSV. Check your file.")
+    print("\nYou can now import the generated XML files into Tally.")
 
 
 if __name__ == "__main__":
     main()
-    input("Press Enter to exit...")
