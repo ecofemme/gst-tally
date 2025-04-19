@@ -1,9 +1,11 @@
+import argparse
 import csv
-from datetime import datetime
-import xml.etree.ElementTree as ET
-import os
 import glob
+import os
 import re
+import xml.etree.ElementTree as ET
+from datetime import datetime
+
 import yaml
 
 
@@ -195,7 +197,6 @@ def create_tally_xml(sales_data, base_name="Sales"):
     if not sales_data:
         print(f"No sales data to process.")
         return None
-
     print(f"Generating XML for {len(sales_data)} total orders...")
     envelope = ET.Element("ENVELOPE")
     header = ET.SubElement(envelope, "HEADER")
@@ -301,11 +302,21 @@ def create_tally_xml(sales_data, base_name="Sales"):
 
 def main():
     print("WooCommerce CSV to Tally XML Converter with Attribute-Based Add-Ons")
-    config = load_config()
+    parser = argparse.ArgumentParser(
+        description="Convert WooCommerce CSV to Tally XML with GST calculations"
+    )
+    parser.add_argument("csv_file", nargs="?", help="Path to WooCommerce CSV file")
+    parser.add_argument(
+        "-c", "--config", default="config.yaml", help="Path to configuration file"
+    )
+    args = parser.parse_args()
+    config = load_config(args.config)
     mapping_file = config.get("mapping_file", "product_mapping.csv")
-    csv_file = input(
-        "Enter the name of your WooCommerce CSV file (e.g., woo_orders.csv): "
-    ).strip()
+    csv_file = args.csv_file
+    if not csv_file:
+        csv_file = input(
+            "Enter the name of your WooCommerce CSV file (e.g., woo_orders.csv): "
+        ).strip()
     if not os.path.exists(mapping_file):
         print(f"Error: Mapping file '{mapping_file}' not found!")
         return
