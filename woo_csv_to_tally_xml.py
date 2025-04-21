@@ -1,12 +1,14 @@
 import argparse
 import csv
 import glob
+import json
 import os
-import re
 import xml.etree.ElementTree as ET
 from datetime import datetime
 
 import yaml
+
+from ledger import get_gst_ledgers, get_party_ledger, get_sales_ledger
 
 
 def load_config(config_file="config.yaml"):
@@ -16,67 +18,75 @@ def load_config(config_file="config.yaml"):
     try:
         with open(config_file, "r") as f:
             config = yaml.safe_load(f)
-        required_fields = ["mapping_file", "woo_prefix", "tally_prefix"]
+        required_fields = ["woo_prefix", "tally_prefix"]
         missing_fields = [field for field in required_fields if field not in config]
         if missing_fields:
             print(
                 f"Error: Missing required configuration fields: {', '.join(missing_fields)}"
             )
             return None
+        if "tally_products_file" not in config:
+            config["tally_products_file"] = "tally_products.csv"
+        if "sku_mapping_file" not in config:
+            config["sku_mapping_file"] = "woo_sku_to_tally.json"
         return config
     except Exception as e:
         print(f"Error loading configuration: {e}")
         return None
 
 
-def load_product_mapping(mapping_file):
-    woo_to_tally = {}
-    tally_to_gst = {}
-    attributes_map = {}
+def load_tally_products(tally_products_file):
+    tally_products = {}
     try:
-        with open(mapping_file, newline="", encoding="utf-8") as f:
+        with open(tally_products_file, newline="", encoding="utf-8") as f:
             reader = csv.DictReader(f)
-            print("Mapping CSV Headers Found:", reader.fieldnames)
+            print("Tally Products CSV Headers Found:", reader.fieldnames)
             for row in reader:
-                woo_name = row["WooCommerce Name"].strip()
                 tally_name = row["Tally Name"].strip()
                 gst_percentage = row["GST Percentage"].strip()
-                attributes = row["Attributes (Key Variations)"].strip()
-                woo_to_tally[woo_name] = tally_name
+                godown_name = row["Godown Name"].strip()
                 gst_rate = float(gst_percentage.replace("%", "")) / 100
-                tally_to_gst[tally_name] = gst_rate
-                attributes_map[woo_name] = attributes
-
-        print(f"Loaded {len(woo_to_tally)} product mappings from {mapping_file}")
-        return woo_to_tally, tally_to_gst, attributes_map
+                tally_products[tally_name] = {
+                    "gst_rate": gst_rate,
+                    "godown_name": godown_name,
+                }
+        print(f"Loaded {len(tally_products)} tally products from {tally_products_file}")
+        return tally_products
     except FileNotFoundError:
-        print(f"Error: Mapping file '{mapping_file}' not found!")
-        return {}, {}, {}
+        print(f"Error: Tally products file '{tally_products_file}' not found!")
+        return {}
     except Exception as e:
-        print(f"Error loading mapping file: {e}")
-        return {}, {}, {}
+        print(f"Error loading tally products file: {e}")
+        return {}
 
 
-def extract_addon_details(attributes):
-    addons = []
-    bag_pattern = r"Add Storage Bag: Yes, Add Bag \(\+Rs\.(\d+\.?\d*)\)"
-    book_pattern = r"Add Book: Yes, Add Book \(\+Rs\.(\d+\.?\d*)\)"
-    bag_match = re.search(bag_pattern, attributes)
-    if bag_match:
-        addons.append({"type": "Storage Pouch", "price": float(bag_match.group(1))})
-    book_match = re.search(book_pattern, attributes)
-    if book_match:
-        addons.append(
-            {"type": "Book – When Girls Grow Up", "price": float(book_match.group(1))}
-        )
-    return addons
+def load_sku_mapping(sku_mapping_file):
+    sku_mapping = {}
+    try:
+        with open(sku_mapping_file, "r", encoding="utf-8") as f:
+            sku_mapping = json.load(f)
+        print(f"Loaded {len(sku_mapping)} SKU mappings from {sku_mapping_file}")
+        return sku_mapping
+    except FileNotFoundError:
+        print(f"Error: SKU mapping file '{sku_mapping_file}' not found!")
+        return {}
+    except json.JSONDecodeError as e:
+        print(f"Error parsing JSON from '{sku_mapping_file}': {e}")
+        return {}
+    except Exception as e:
+        print(f"Error loading SKU mapping file: {e}")
+        return {}
 
 
-def get_tally_product_name(woo_name, woo_to_tally):
-    return woo_to_tally.get(woo_name.strip(), woo_name.strip())
+def get_tally_products_by_sku(sku, sku_mapping):
+    if sku and sku.strip() in sku_mapping:
+        return sku_mapping[sku.strip()]
+    else:
+        print(f"Warning: SKU '{sku}' not found in mapping")
+        return []
 
 
-def read_woo_csv(csv_file, woo_to_tally, tally_to_gst, attributes_map):
+def read_woo_csv(csv_file, sku_mapping, tally_products):
     sales_data = {}
     try:
         with open(csv_file, newline="", encoding="utf-8-sig") as f:
@@ -99,11 +109,7 @@ def read_woo_csv(csv_file, woo_to_tally, tally_to_gst, attributes_map):
                         customer_email = row["Billing Email Address"] or "N/A"
                         amount = float(row["Order Total"].replace(",", ""))
                         country = row["Billing Country"]
-                        party_ledger = (
-                            "Online Shop Domestic"
-                            if country == "IN"
-                            else "ONLINE SHOP INTERNATIONAL"
-                        )
+                        party_ledger = get_party_ledger(country)
                         is_domestic = country == "IN"
                         sales_data[order_id] = {
                             "date": sale_date,
@@ -114,67 +120,55 @@ def read_woo_csv(csv_file, woo_to_tally, tally_to_gst, attributes_map):
                             "party_ledger": party_ledger,
                             "is_domestic": is_domestic,
                         }
-                    product_name = row["Product Name"]
-                    tally_name = get_tally_product_name(product_name, woo_to_tally)
+                    sku = row["SKU"].strip() if "SKU" in row else ""
+                    tally_names = get_tally_products_by_sku(sku, sku_mapping)
                     quantity = int(float(row.get("Quantity", "1").replace(",", "")))
                     item_cost = float(row.get("Item Cost", "0").replace(",", ""))
-                    attributes = attributes_map.get(product_name, "None")
-                    addons = extract_addon_details(attributes)
-                    base_cost = item_cost - sum(addon["price"] for addon in addons)
-                    gst_rate = tally_to_gst.get(tally_name, 0.0)
-                    gst_rate = gst_rate if sales_data[order_id]["is_domestic"] else 0.0
-                    base_rate = (
-                        base_cost / (1 + gst_rate) if gst_rate > 0 else base_cost
-                    )
-                    total_base = base_rate * quantity
-                    total_gst = (
-                        (base_cost - base_rate) * quantity if gst_rate > 0 else 0.0
-                    )
-                    cgst_amount = total_gst / 2 if gst_rate > 0 else 0.0
-                    sgst_amount = total_gst / 2 if gst_rate > 0 else 0.0
-                    sales_data[order_id]["products"].append(
-                        {
-                            "name": tally_name,
-                            "quantity": quantity,
-                            "base_rate": base_rate,
-                            "base_amount": total_base,
-                            "gst_rate": gst_rate,
-                            "cgst_amount": cgst_amount,
-                            "sgst_amount": sgst_amount,
-                        }
-                    )
-                    for addon in addons:
-                        addon_tally_name = addon["type"]
-                        addon_price = addon["price"]
-                        addon_gst_rate = tally_to_gst.get(addon_tally_name, 0.0)
-                        addon_gst_rate = (
-                            addon_gst_rate
-                            if sales_data[order_id]["is_domestic"]
-                            else 0.0
-                        )
-                        addon_base_rate = (
-                            addon_price / (1 + addon_gst_rate)
-                            if addon_gst_rate > 0
-                            else addon_price
-                        )
-                        addon_gst = (
-                            (addon_price - addon_base_rate) * quantity
-                            if addon_gst_rate > 0
-                            else 0.0
-                        )
-                        addon_cgst = addon_gst / 2
-                        addon_sgst = addon_gst / 2
-                        sales_data[order_id]["products"].append(
-                            {
-                                "name": addon_tally_name,
-                                "quantity": quantity,
-                                "base_rate": addon_base_rate,
-                                "base_amount": addon_base_rate * quantity,
-                                "gst_rate": addon_gst_rate,
-                                "cgst_amount": addon_cgst * quantity,
-                                "sgst_amount": addon_sgst * quantity,
-                            }
-                        )
+                    for tally_name in tally_names:
+                        if tally_name in tally_products:
+                            product_details = tally_products[tally_name]
+                            gst_rate = product_details["gst_rate"]
+                            godown_name = product_details["godown_name"]
+                            gst_rate = (
+                                gst_rate if sales_data[order_id]["is_domestic"] else 0.0
+                            )
+                            ledger_name = get_sales_ledger(
+                                gst_rate, sales_data[order_id]["is_domestic"]
+                            )
+                            if len(tally_names) > 1:
+                                product_base_cost = item_cost / len(tally_names)
+                            else:
+                                product_base_cost = item_cost
+                            base_rate = (
+                                product_base_cost / (1 + gst_rate)
+                                if gst_rate > 0
+                                else product_base_cost
+                            )
+                            total_base = base_rate * quantity
+                            total_gst = (
+                                (product_base_cost - base_rate) * quantity
+                                if gst_rate > 0
+                                else 0.0
+                            )
+                            cgst_amount = total_gst / 2 if gst_rate > 0 else 0.0
+                            sgst_amount = total_gst / 2 if gst_rate > 0 else 0.0
+                            sales_data[order_id]["products"].append(
+                                {
+                                    "name": tally_name,
+                                    "quantity": quantity,
+                                    "base_rate": base_rate,
+                                    "base_amount": total_base,
+                                    "gst_rate": gst_rate,
+                                    "cgst_amount": cgst_amount,
+                                    "sgst_amount": sgst_amount,
+                                    "ledger_name": ledger_name,
+                                    "godown_name": godown_name,
+                                }
+                            )
+                        else:
+                            print(
+                                f"Warning: Tally product '{tally_name}' not found in tally_products"
+                            )
                 except (KeyError, ValueError) as e:
                     print(
                         f"Error processing order {row.get('Order ID', 'unknown')}: {e}"
@@ -186,15 +180,6 @@ def read_woo_csv(csv_file, woo_to_tally, tally_to_gst, attributes_map):
     except Exception as e:
         print(f"Error reading CSV: {e}")
         return []
-
-
-def get_next_filename(base_name="Sales", extension=".xml"):
-    counter = 1
-    while True:
-        filename = f"{base_name}{counter}{extension}"
-        if not os.path.exists(filename):
-            return filename
-        counter += 1
 
 
 def create_tally_xml(sales_data, base_name="Sales"):
@@ -246,48 +231,38 @@ def create_tally_xml(sales_data, base_name="Sales"):
             ET.SubElement(
                 inventory_entry, "BILLEDQTY"
             ).text = f"{product['quantity']} Nos"
-            ET.SubElement(inventory_entry, "GODOWNNAME").text = "Eco Femme"
+            ET.SubElement(inventory_entry, "GODOWNNAME").text = product["godown_name"]
             accounting = ET.SubElement(inventory_entry, "ACCOUNTINGALLOCATIONS.LIST")
-            if sale["is_domestic"] and product["gst_rate"] > 0:
-                ledger_name = f"Local GST Sales @ {product['gst_rate'] * 100:.0f}%"
-            elif sale["is_domestic"]:
-                ledger_name = "Local Exempt Sales"
-            else:
-                ledger_name = "Export Sales"
-            ET.SubElement(accounting, "LEDGERNAME").text = ledger_name
+            ET.SubElement(accounting, "LEDGERNAME").text = product["ledger_name"]
             ET.SubElement(accounting, "ISDEEMEDPOSITIVE").text = "No"
             ET.SubElement(accounting, "AMOUNT").text = f"{product['base_amount']:.2f}"
         if sale["is_domestic"]:
-            total_cgst = sum(p["cgst_amount"] for p in sale["products"])
-            total_sgst = sum(p["sgst_amount"] for p in sale["products"])
-            gst_rates_used = set(
-                p["gst_rate"] for p in sale["products"] if p["gst_rate"] > 0
-            )
-            for gst_rate in gst_rates_used:
+            gst_rates_used = {}
+            for product in sale["products"]:
+                if product["gst_rate"] > 0:
+                    gst_rate = product["gst_rate"]
+                    if gst_rate not in gst_rates_used:
+                        gst_rates_used[gst_rate] = {"cgst": 0, "sgst": 0}
+                    gst_rates_used[gst_rate]["cgst"] += product["cgst_amount"]
+                    gst_rates_used[gst_rate]["sgst"] += product["sgst_amount"]
+            for gst_rate, amounts in gst_rates_used.items():
                 cgst_rate_percent = (gst_rate / 2) * 100
                 sgst_rate_percent = cgst_rate_percent
-                cgst_ledger = f"CGST Collected @ {cgst_rate_percent:.0f}%"
-                sgst_ledger = f"SGST Collected @ {sgst_rate_percent:.0f}%"
-                cgst_amount = sum(
-                    p["cgst_amount"]
-                    for p in sale["products"]
-                    if p["gst_rate"] == gst_rate
-                )
-                sgst_amount = sum(
-                    p["sgst_amount"]
-                    for p in sale["products"]
-                    if p["gst_rate"] == gst_rate
-                )
-                if cgst_amount > 0:
+                gst_ledgers = get_gst_ledgers(gst_rate, sale["is_domestic"])
+                if amounts["cgst"] > 0:
                     cgst_entry = ET.SubElement(voucher, "LEDGERENTRIES.LIST")
-                    ET.SubElement(cgst_entry, "LEDGERNAME").text = cgst_ledger
+                    ET.SubElement(cgst_entry, "LEDGERNAME").text = gst_ledgers[
+                        "cgst_ledger"
+                    ]
                     ET.SubElement(cgst_entry, "ISDEEMEDPOSITIVE").text = "No"
-                    ET.SubElement(cgst_entry, "AMOUNT").text = f"{cgst_amount:.2f}"
-                if sgst_amount > 0:
+                    ET.SubElement(cgst_entry, "AMOUNT").text = f"{amounts['cgst']:.2f}"
+                if amounts["sgst"] > 0:
                     sgst_entry = ET.SubElement(voucher, "LEDGERENTRIES.LIST")
-                    ET.SubElement(sgst_entry, "LEDGERNAME").text = sgst_ledger
+                    ET.SubElement(sgst_entry, "LEDGERNAME").text = gst_ledgers[
+                        "sgst_ledger"
+                    ]
                     ET.SubElement(sgst_entry, "ISDEEMEDPOSITIVE").text = "No"
-                    ET.SubElement(sgst_entry, "AMOUNT").text = f"{sgst_amount:.2f}"
+                    ET.SubElement(sgst_entry, "AMOUNT").text = f"{amounts['sgst']:.2f}"
         party_entry = ET.SubElement(voucher, "LEDGERENTRIES.LIST")
         ET.SubElement(party_entry, "LEDGERNAME").text = sale["party_ledger"]
         ET.SubElement(party_entry, "ISDEEMEDPOSITIVE").text = "Yes"
@@ -305,9 +280,9 @@ def create_tally_xml(sales_data, base_name="Sales"):
 
 
 def main():
-    print("WooCommerce CSV to Tally XML Converter with Attribute-Based Add-Ons")
+    print("WooCommerce CSV to Tally XML Converter with SKU-based Mapping")
     parser = argparse.ArgumentParser(
-        description="Convert WooCommerce CSV to Tally XML with GST calculations"
+        description="Convert WooCommerce CSV to Tally XML with GST calculations using SKU mapping"
     )
     parser.add_argument(
         "-c", "--config", default="config.yaml", help="Path to configuration file"
@@ -316,15 +291,23 @@ def main():
     config = load_config(args.config)
     if not config:
         return
-    mapping_file = config["mapping_file"]
+    tally_products_file = config["tally_products_file"]
+    sku_mapping_file = config["sku_mapping_file"]
     woo_prefix = config["woo_prefix"]
     tally_prefix = config["tally_prefix"]
-    if not os.path.exists(mapping_file):
-        print(f"Error: Mapping file '{mapping_file}' not found!")
+    if not os.path.exists(tally_products_file):
+        print(f"Error: Tally products file '{tally_products_file}' not found!")
         return
-    woo_to_tally, tally_to_gst, attributes_map = load_product_mapping(mapping_file)
-    if not woo_to_tally or not tally_to_gst or not attributes_map:
-        print("Failed to load product mapping. Exiting.")
+    if not os.path.exists(sku_mapping_file):
+        print(f"Error: SKU mapping file '{sku_mapping_file}' not found!")
+        return
+    tally_products = load_tally_products(tally_products_file)
+    sku_mapping = load_sku_mapping(sku_mapping_file)
+    if not tally_products:
+        print("Failed to load Tally products. Exiting.")
+        return
+    if not sku_mapping:
+        print("Failed to load SKU mapping. Exiting.")
         return
     csv_files = glob.glob(f"{woo_prefix}*.csv")
     if not csv_files:
@@ -336,7 +319,7 @@ def main():
         suffix = filename.replace(woo_prefix, "").replace(".csv", "")
         base_name = f"{tally_prefix}{suffix}"
         print(f"\nProcessing {csv_file}...")
-        sales_data = read_woo_csv(csv_file, woo_to_tally, tally_to_gst, attributes_map)
+        sales_data = read_woo_csv(csv_file, sku_mapping, tally_products)
         if sales_data:
             domestic_count = len([sale for sale in sales_data if sale["is_domestic"]])
             international_count = len(

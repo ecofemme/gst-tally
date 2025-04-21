@@ -1,3 +1,4 @@
-mapping_file: product_mapping.csv
 woo_prefix: woo_orders
 tally_prefix: sales
+tally_products_file: tally_products.csv
+sku_mapping_file: woo_sku_to_tally.json
