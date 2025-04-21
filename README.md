@@ -18,7 +18,7 @@ A tool to convert WooCommerce CSV exports to Tally-compatible XML import files w
 
 1. Clone the repository:
    ```
-   git clone https://github.com/yourusername/gst-tally.git
+   git clone https://github.com/aurovilledotcom/gst-tally.git
    cd gst-tally
    ```
 
