@@ -86,7 +86,7 @@
   "EF-MFK": ["Natural Medium Flow Kit", "Vibrant Medium Flow Kit"],
   "EF-n-MFK": ["Natural Medium Flow Kit"],
   "EF-v-MFK": ["Vibrant Medium Flow Kit"],
-  "EF-HFK": ["Heavy Flow Kit - Pack of 4"],
+  "EF-HFK": ["Heavy Flow Kit"],
   "EF-1KIT": ["Pad for Pad scheme"],
   "G1P": ["Pad for Pad scheme"],
   "G1K": ["Pad for Pad scheme"],
@@ -120,5 +120,6 @@
   "NPTWN6_LTD": ["Limited Edition Night Pad Twin Pack (Pack of 6)"],
   "SCTWN_LTD": ["Limited Edition Super Comfy Twin Pack"],
   "SC4_LTD": ["Limited Edition Super Comfy Twin Pack (Pack of 4)"],
-  "SC6_LTD": ["Limited Edition Super Comfy Twin Pack (Pack of 6)"]
+  "SC6_LTD": ["Limited Edition Super Comfy Twin Pack (Pack of 6)"],
+  "": []
 }
