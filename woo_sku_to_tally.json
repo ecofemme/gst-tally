@@ -2,10 +2,6 @@
   "EF-n-DP": ["Natural Organic Day Pad"],
   "EF-n-DPP": ["Natural Organic Day Pad Plus"],
   "EF-v-DPP": ["Vibrant organic Day pad plus"],
-  "EF-FPK": [
-    "Natural Organic First Period Kit",
-    "Vibrant Organic First Period Kit"
-  ],
   "EF-v-NPTW": ["Vibrant Organic Night Pad Twin Pack"],
   "EF-v-SC": ["Vibrant Organic Super Comfy"],
   "ACS-TP": ["Travel pouch"],
@@ -29,28 +25,20 @@
   "EF-n-FCK": ["Natural Organic Fully Cycle Kit"],
   "ACS-SHC": ["SHE cups"],
   "ACS-CT": ["Cuterus"],
-  "EF-SHC/PLx": [
-    "Natural She Cup Pantyliner Kit without PUL",
-    "Vibrant She Cup Pantyliner Kit without PUL"
-  ],
+  "EF-n-SHC/PLx": ["Natural She Cup Pantyliner Kit without PUL"],
+  "EF-V-SHC/plx": ["Vibrant She Cup Pantyliner Kit without PUL"],
   "ACS-KC": ["Key Chain"],
-  "EF-SHC/PLp": [
-    "Natural She Cup Pantyliner Kit with PUL",
-    "Vibrant She Cup Pantyliner Kit with PUL"
-  ],
+  "EF-n-SHC/PLp": ["Natural She Cup Pantyliner Kit with PUL"],
+  "EF-v-SHC/PLp": ["Vibrant She Cup Pantyliner Kit with PUL"],
   "EF-v-DPTW": ["Vibrant Organic Day Pad Twin Pack"],
   "EF-v-DPPTW": ["Vibrant Organic Day Pad Plus Twin Pack"],
   "EF-n-DPPTW": ["Natural Organic Day Pad Plus Twin Pack"],
   "EF-v-FPTW": ["Vibrant Organic Foldable Pad Twin Pack"],
-  "EB-GOF": [
-    "Good Ol' Faithful Large - Square",
-    "Good Ol' Faithful Small - Square"
-  ],
   "EB-NPC": ["Nappy Covers"],
-  "EB-FNF-N": [
-    "FoldnFit Night Large - Insert",
-    "FoldnFit Night Small - Insert"
-  ],
+  "EB-FNF-N/L": ["FoldnFit Night Large - Insert"],
+  "EB-FNF-N/S": ["FoldnFit Night Small - Insert"],
+  "EB-FNF-D/L": ["FoldnFit Day Large - Insert"],
+  "EB-FNF-D/S": ["FoldnFit Day Small - Insert"],
   "EF-NMK": ["New Mum's Kit"],
   "EB-SSB": ["Sumo Style belt"],
   "EB-FNF-D": ["FoldnFit Day Large - Insert", "FoldnFit Day Small - Insert"],
@@ -76,7 +64,7 @@
   "EF-n-MYO": ["Natural Make Your Own Kit"],
   "EF-v-MYO": ["Vibrant Make Your Own Kit"],
   "EF-v-FPKB": ["Vibrant Organic First Period Kit", "Book"],
-  "EF-n-FPKB": ["Natural Organic First Period Kit"],
+  "EF-n-FPKB": ["Natural Organic First Period Kit", "Book"],
   "EF-v-FCKwPouch": ["Vibrant Organic Fully Cycle Kit"],
   "EF-v-FCK(SB)": ["Vibrant Organic Fully Cycle Kit", "Storage Pouch"],
   "Ef-n-FCK/CB": ["Natural Organic Fully Cycle Kit", "Storage Pouch"],
@@ -119,7 +107,6 @@
   "NPTWN4_LTD": ["Limited Edition Night Pad Twin Pack (Pack of 4)"],
   "NPTWN6_LTD": ["Limited Edition Night Pad Twin Pack (Pack of 6)"],
   "SCTWN_LTD": ["Limited Edition Super Comfy Twin Pack"],
-  "SC4_LTD": ["Limited Edition Super Comfy Twin Pack (Pack of 4)"],
-  "SC6_LTD": ["Limited Edition Super Comfy Twin Pack (Pack of 6)"],
-  "": []
+  "SC4_LTD": ["Limited Edition Super Comfy Twin Pack (Pack of 4)"], 
+  "SC6_LTD": ["Limited Edition Super Comfy Twin Pack (Pack of 6)"]
 }
