@@ -220,20 +220,36 @@ def create_tally_xml(sales_data, base_name="Sales"):
                 ledger_entry = ET.SubElement(voucher, "LEDGERENTRIES.LIST")
                 ET.SubElement(ledger_entry, "LEDGERNAME").text = product["name"]
                 ET.SubElement(ledger_entry, "ISDEEMEDPOSITIVE").text = "No"
-                ET.SubElement(ledger_entry, "AMOUNT").text = f"{product['base_amount']:.2f}"
+                ET.SubElement(
+                    ledger_entry, "AMOUNT"
+                ).text = f"{product['base_amount']:.2f}"
             else:
                 inventory_entry = ET.SubElement(voucher, "ALLINVENTORYENTRIES.LIST")
                 ET.SubElement(inventory_entry, "STOCKITEMNAME").text = product["name"]
                 ET.SubElement(inventory_entry, "ISDEEMEDPOSITIVE").text = "No"
-                ET.SubElement(inventory_entry, "RATE").text = f"{product['base_rate']:.2f}/Nos"
-                ET.SubElement(inventory_entry, "AMOUNT").text = f"{product['base_amount']:.2f}"
-                ET.SubElement(inventory_entry, "ACTUALQTY").text = f"{product['quantity']} Nos"
-                ET.SubElement(inventory_entry, "BILLEDQTY").text = f"{product['quantity']} Nos"
-                ET.SubElement(inventory_entry, "GODOWNNAME").text = product["godown_name"]
-                accounting = ET.SubElement(inventory_entry, "ACCOUNTINGALLOCATIONS.LIST")
+                ET.SubElement(
+                    inventory_entry, "RATE"
+                ).text = f"{product['base_rate']:.2f}/Nos"
+                ET.SubElement(
+                    inventory_entry, "AMOUNT"
+                ).text = f"{product['base_amount']:.2f}"
+                ET.SubElement(
+                    inventory_entry, "ACTUALQTY"
+                ).text = f"{product['quantity']} Nos"
+                ET.SubElement(
+                    inventory_entry, "BILLEDQTY"
+                ).text = f"{product['quantity']} Nos"
+                ET.SubElement(inventory_entry, "GODOWNNAME").text = product[
+                    "godown_name"
+                ]
+                accounting = ET.SubElement(
+                    inventory_entry, "ACCOUNTINGALLOCATIONS.LIST"
+                )
                 ET.SubElement(accounting, "LEDGERNAME").text = product["ledger_name"]
                 ET.SubElement(accounting, "ISDEEMEDPOSITIVE").text = "No"
-                ET.SubElement(accounting, "AMOUNT").text = f"{product['base_amount']:.2f}"
+                ET.SubElement(
+                    accounting, "AMOUNT"
+                ).text = f"{product['base_amount']:.2f}"
         if sale["is_domestic"]:
             gst_rates_used = {}
             for product in sale["products"]:
@@ -249,12 +265,16 @@ def create_tally_xml(sales_data, base_name="Sales"):
                 gst_ledgers = get_gst_ledgers(gst_rate, sale["is_domestic"])
                 if amounts["cgst"] > 0:
                     cgst_entry = ET.SubElement(voucher, "LEDGERENTRIES.LIST")
-                    ET.SubElement(cgst_entry, "LEDGERNAME").text = gst_ledgers["cgst_ledger"]
+                    ET.SubElement(cgst_entry, "LEDGERNAME").text = gst_ledgers[
+                        "cgst_ledger"
+                    ]
                     ET.SubElement(cgst_entry, "ISDEEMEDPOSITIVE").text = "No"
                     ET.SubElement(cgst_entry, "AMOUNT").text = f"{amounts['cgst']:.2f}"
                 if amounts["sgst"] > 0:
                     sgst_entry = ET.SubElement(voucher, "LEDGERENTRIES.LIST")
-                    ET.SubElement(sgst_entry, "LEDGERNAME").text = gst_ledgers["sgst_ledger"]
+                    ET.SubElement(sgst_entry, "LEDGERNAME").text = gst_ledgers[
+                        "sgst_ledger"
+                    ]
                     ET.SubElement(sgst_entry, "ISDEEMEDPOSITIVE").text = "No"
                     ET.SubElement(sgst_entry, "AMOUNT").text = f"{amounts['sgst']:.2f}"
         party_entry = ET.SubElement(voucher, "LEDGERENTRIES.LIST")
