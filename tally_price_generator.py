@@ -41,10 +41,10 @@ def load_woo_products(woo_products_csv):
         with open(woo_products_csv, newline="", encoding="utf-8-sig") as f:
             reader = csv.DictReader(f)
             for row in reader:
-                sku = row.get("SKU", "").strip()
+                sku = row.get("Sku", "").strip()
                 if sku:
                     try:
-                        price = float(row.get("Regular price", "0").replace(",", ""))
+                        price = float(row.get("Price", "0").replace(",", ""))
                         products[sku] = {
                             "price": price,
                             "name": row.get("Name", ""),
