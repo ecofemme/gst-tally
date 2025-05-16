@@ -12,7 +12,6 @@ A tool to convert WooCommerce CSV exports to Tally-compatible XML import files w
 
 ## Requirements
 
-- Python 3.6 or higher
 - UV (Python package manager)
 
 ## Installation
