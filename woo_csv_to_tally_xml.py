@@ -60,6 +60,45 @@ def load_tally_products(tally_products_file):
         return {}
 
 
+def load_product_prices(product_prices_file):
+    product_prices = {}
+    try:
+        with open(product_prices_file, newline="", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            print("Product Prices CSV Headers Found:", reader.fieldnames)
+            required_fields = ["Tally Name", "Normal Price"]
+            missing_fields = [
+                field for field in required_fields if field not in reader.fieldnames
+            ]
+            if missing_fields:
+                print(
+                    f"Error: Missing required fields in product prices CSV: {', '.join(missing_fields)}"
+                )
+                return {}
+            for row in reader:
+                tally_name = row["Tally Name"].strip()
+                try:
+                    normal_price = float(row["Normal Price"])
+                    if normal_price <= 0:
+                        print(
+                            f"Error: Normal price for '{tally_name}' must be positive"
+                        )
+                        continue
+                    product_prices[tally_name] = normal_price
+                except ValueError:
+                    print(
+                        f"Error: Invalid price for product '{tally_name}': {row['Normal Price']}"
+                    )
+        print(f"Loaded {len(product_prices)} product prices from {product_prices_file}")
+        return product_prices
+    except FileNotFoundError:
+        print(f"Error: Product prices file '{product_prices_file}' not found!")
+        return {}
+    except Exception as e:
+        print(f"Error loading product prices file: {e}")
+        return {}
+
+
 def load_sku_mapping(sku_mapping_file):
     sku_mapping = {}
     try:
@@ -86,7 +125,7 @@ def get_tally_products_by_sku(sku, sku_mapping):
         return []
 
 
-def read_woo_csv(csv_file, sku_mapping, tally_products):
+def read_woo_csv(csv_file, sku_mapping, tally_products, product_prices):
     sales_data = {}
     try:
         with open(csv_file, newline="", encoding="utf-8-sig") as f:
@@ -136,7 +175,15 @@ def read_woo_csv(csv_file, sku_mapping, tally_products):
                                 gst_rate, sales_data[order_id]["is_domestic"]
                             )
                             if len(tally_names) > 1:
-                                product_base_cost = item_cost / len(tally_names)
+                                missing_prices = [name for name in tally_names if name not in product_prices]
+                                if missing_prices:
+                                    print(f"Error: Missing prices for products: {', '.join(missing_prices)}. "
+                                        f"SKU '{sku}' requires prices for all mapped Tally products.")
+                                    continue 
+                                normal_prices = {name: product_prices[name] for name in tally_names}
+                                total_normal_price = sum(normal_prices.values())
+                                discount_ratio = item_cost / total_normal_price
+                                product_base_cost = normal_prices[tally_name] * discount_ratio
                             else:
                                 product_base_cost = item_cost
                             base_rate = (
@@ -309,6 +356,7 @@ def main():
     sku_mapping_file = config["sku_mapping_file"]
     woo_prefix = config["woo_prefix"]
     tally_prefix = config["tally_prefix"]
+    product_prices_file = config["product_prices_file"]
     if not os.path.exists(tally_products_file):
         print(f"Error: Tally products file '{tally_products_file}' not found!")
         return
@@ -317,11 +365,15 @@ def main():
         return
     tally_products = load_tally_products(tally_products_file)
     sku_mapping = load_sku_mapping(sku_mapping_file)
+    product_prices = load_product_prices(product_prices_file)
     if not tally_products:
         print("Failed to load Tally products. Exiting.")
         return
     if not sku_mapping:
         print("Failed to load SKU mapping. Exiting.")
+        return
+    if not product_prices:
+        print("Failed to load product price file. Exiting.")
         return
     csv_files = glob.glob(f"{woo_prefix}*.csv")
     if not csv_files:
@@ -333,7 +385,7 @@ def main():
         suffix = filename.replace(woo_prefix, "").replace(".csv", "")
         base_name = f"{tally_prefix}{suffix}"
         print(f"\nProcessing {csv_file}...")
-        sales_data = read_woo_csv(csv_file, sku_mapping, tally_products)
+        sales_data = read_woo_csv(csv_file, sku_mapping, tally_products, product_prices)
         if sales_data:
             domestic_count = len([sale for sale in sales_data if sale["is_domestic"]])
             international_count = len(
