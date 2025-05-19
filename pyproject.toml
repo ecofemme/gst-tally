@@ -8,3 +8,7 @@ license = {text = "MIT"}
 dependencies = [
     "pyyaml>=6.0.2",
 ]
+
+[project.scripts]
+gst-tally = "woo_csv_to_tally_xml:main"
+gst-tally-gui = "tally_launcher:main"
