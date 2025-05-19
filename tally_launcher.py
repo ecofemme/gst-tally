@@ -91,6 +91,23 @@ def setup_tcl_tk():
         return False
 
 
+# Initialize X11 threads for Linux before importing tkinter
+if sys.platform.startswith("linux"):
+    # Set the threading flag for X11
+    os.environ["PYTHONTHREADED"] = "1"
+
+    try:
+        # Try to initialize X threads via _tkinter
+        import _tkinter
+
+        _tkinter.TkappInitStubs("", "", 1)
+    except Exception as e:
+        print(f"Note: Could not pre-initialize X11 threads: {e}")
+        print(
+            "If you encounter X11 threading issues, try installing python3-xlib and run again."
+        )
+
+
 class TallyLauncherGUI:
     def __init__(self, root):
         self.root = root
