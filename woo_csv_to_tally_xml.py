@@ -404,10 +404,17 @@ def main():
         print(f"No CSV files found with '{woo_prefix}' prefix.")
         return
     print(f"Found {len(csv_files)} CSV files to process.")
+    processed_count = 0
+    skipped_count = 0
     for csv_file in csv_files:
         filename = os.path.basename(csv_file)
         suffix = filename.replace(woo_prefix, "").replace(".csv", "")
         base_name = f"{tally_prefix}{suffix}"
+        output_filename = os.path.join(data_folder, f"{base_name}.xml")
+        if os.path.exists(output_filename):
+            print(f"\nSkipping {filename}... Output file {os.path.basename(output_filename)} already exists.")
+            skipped_count += 1
+            continue
         print(f"\nProcessing {csv_file}...")
         sales_data = read_woo_csv(data_folder, csv_file, sku_mapping, tally_products, product_prices)
         if sales_data:
@@ -428,6 +435,7 @@ def main():
                 print("No sales file generated for this CSV.")
         else:
             print("No valid sales data processed for this CSV. Check your file.")
+    print(f"\nProcessed {processed_count} CSV files, skipped {skipped_count} CSV files (already processed).")
     print("\nYou can now import the generated XML files into Tally.")
 
 
