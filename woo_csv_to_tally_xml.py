@@ -18,17 +18,28 @@ def load_config(config_file="config.yaml"):
     try:
         with open(config_file, "r") as f:
             config = yaml.safe_load(f)
-        required_fields = ["woo_prefix", "tally_prefix"]
+        required_fields = [
+            "woo_prefix",
+            "tally_prefix",
+            "data_folder",
+            "tally_products_file",
+            "sku_mapping_file",
+            "product_prices_file",
+        ]
         missing_fields = [field for field in required_fields if field not in config]
         if missing_fields:
             print(
                 f"Error: Missing required configuration fields: {', '.join(missing_fields)}"
             )
             return None
-        if "tally_products_file" not in config:
-            config["tally_products_file"] = "tally_products.csv"
-        if "sku_mapping_file" not in config:
-            config["sku_mapping_file"] = "woo_sku_to_tally.json"
+        if not os.path.isabs(config["data_folder"]):
+            print(
+                f"Error: data_folder '{config['data_folder']}' must be an absolute path!"
+            )
+            return None
+        if not os.path.exists(config["data_folder"]):
+            print(f"Error: Data folder '{config['data_folder']}' does not exist!")
+            return None
         return config
     except Exception as e:
         print(f"Error loading configuration: {e}")
@@ -125,10 +136,11 @@ def get_tally_products_by_sku(sku, sku_mapping):
         return []
 
 
-def read_woo_csv(csv_file, sku_mapping, tally_products, product_prices):
+def read_woo_csv(data_folder, csv_file, sku_mapping, tally_products, product_prices):
+    file_path = os.path.join(data_folder, csv_file)
     sales_data = {}
     try:
-        with open(csv_file, newline="", encoding="utf-8-sig") as f:
+        with open(file_path, newline="", encoding="utf-8-sig") as f:
             reader = csv.DictReader(f)
             print("CSV Headers Found:", reader.fieldnames)
             for row in reader:
@@ -175,15 +187,25 @@ def read_woo_csv(csv_file, sku_mapping, tally_products, product_prices):
                                 gst_rate, sales_data[order_id]["is_domestic"]
                             )
                             if len(tally_names) > 1:
-                                missing_prices = [name for name in tally_names if name not in product_prices]
+                                missing_prices = [
+                                    name
+                                    for name in tally_names
+                                    if name not in product_prices
+                                ]
                                 if missing_prices:
-                                    print(f"Error: Missing prices for products: {', '.join(missing_prices)}. "
-                                        f"SKU '{sku}' requires prices for all mapped Tally products.")
-                                    continue 
-                                normal_prices = {name: product_prices[name] for name in tally_names}
+                                    print(
+                                        f"Error: Missing prices for products: {', '.join(missing_prices)}. "
+                                        f"SKU '{sku}' requires prices for all mapped Tally products."
+                                    )
+                                    continue
+                                normal_prices = {
+                                    name: product_prices[name] for name in tally_names
+                                }
                                 total_normal_price = sum(normal_prices.values())
                                 discount_ratio = item_cost / total_normal_price
-                                product_base_cost = normal_prices[tally_name] * discount_ratio
+                                product_base_cost = (
+                                    normal_prices[tally_name] * discount_ratio
+                                )
                             else:
                                 product_base_cost = item_cost
                             base_rate = (
@@ -229,7 +251,7 @@ def read_woo_csv(csv_file, sku_mapping, tally_products, product_prices):
         return []
 
 
-def create_tally_xml(sales_data, base_name="Sales"):
+def create_tally_xml(data_folder, sales_data, base_name="Sales"):
     if not sales_data:
         print(f"No sales data to process.")
         return None
@@ -328,7 +350,7 @@ def create_tally_xml(sales_data, base_name="Sales"):
         ET.SubElement(party_entry, "LEDGERNAME").text = sale["party_ledger"]
         ET.SubElement(party_entry, "ISDEEMEDPOSITIVE").text = "Yes"
         ET.SubElement(party_entry, "AMOUNT").text = f"-{sale['amount']:.2f}"
-    output_filename = f"{base_name}.xml"
+    output_filename = os.path.join(data_folder, f"{base_name}.xml")
     print(f"Writing to {output_filename}...")
     try:
         tree = ET.ElementTree(envelope)
@@ -352,6 +374,7 @@ def main():
     config = load_config(args.config)
     if not config:
         return
+    data_folder = config["data_folder"]
     tally_products_file = config["tally_products_file"]
     sku_mapping_file = config["sku_mapping_file"]
     woo_prefix = config["woo_prefix"]
@@ -375,7 +398,8 @@ def main():
     if not product_prices:
         print("Failed to load product price file. Exiting.")
         return
-    csv_files = glob.glob(f"{woo_prefix}*.csv")
+    csv_file_pattern = os.path.join(data_folder, f"{woo_prefix}*.csv")
+    csv_files = glob.glob(csv_file_pattern)
     if not csv_files:
         print(f"No CSV files found with '{woo_prefix}' prefix.")
         return
@@ -385,7 +409,7 @@ def main():
         suffix = filename.replace(woo_prefix, "").replace(".csv", "")
         base_name = f"{tally_prefix}{suffix}"
         print(f"\nProcessing {csv_file}...")
-        sales_data = read_woo_csv(csv_file, sku_mapping, tally_products, product_prices)
+        sales_data = read_woo_csv(data_folder, csv_file, sku_mapping, tally_products, product_prices)
         if sales_data:
             domestic_count = len([sale for sale in sales_data if sale["is_domestic"]])
             international_count = len(
@@ -393,7 +417,7 @@ def main():
             )
             print(f"Domestic orders detected: {domestic_count}")
             print(f"International orders detected: {international_count}")
-            sales_file = create_tally_xml(sales_data, base_name=base_name)
+            sales_file = create_tally_xml(data_folder, sales_data, base_name=base_name)
             total_processed = len(sales_data)
             print(f"Processed {total_processed} completed orders.")
             if sales_file:

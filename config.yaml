@@ -1,3 +1,4 @@
+data_folder: ~/Woo Orders
 woo_prefix: Orders-Export
 tally_prefix: sales
 tally_products_file: tally_products.csv
