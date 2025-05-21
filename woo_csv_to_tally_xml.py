@@ -370,7 +370,9 @@ def create_tally_xml(data_folder, sales_data, base_name="Sales"):
                     ET.SubElement(sgst_entry, "ISDEEMEDPOSITIVE").text = "No"
                     ET.SubElement(sgst_entry, "AMOUNT").text = f"{sgst_amount:.2f}"
                     total_entries_value += sgst_amount
-        rounding_diff = sale["amount"] - total_entries_value
+        total_entries_value = Decimal(f"{total_entries_value:.2f}")
+        sale_amount = Decimal(f"{sale['amount']:.2f}")
+        rounding_diff = sale_amount - total_entries_value
         if abs(rounding_diff) >= Decimal("0.01"):
             rounding_entry = ET.SubElement(voucher, "LEDGERENTRIES.LIST")
             ET.SubElement(rounding_entry, "LEDGERNAME").text = "Rounding Off"
@@ -380,7 +382,7 @@ def create_tally_xml(data_folder, sales_data, base_name="Sales"):
         party_entry = ET.SubElement(voucher, "LEDGERENTRIES.LIST")
         ET.SubElement(party_entry, "LEDGERNAME").text = sale["party_ledger"]
         ET.SubElement(party_entry, "ISDEEMEDPOSITIVE").text = "Yes"
-        ET.SubElement(party_entry, "AMOUNT").text = f"-{sale['amount']:.2f}"
+        ET.SubElement(party_entry, "AMOUNT").text = f"-{sale_amount:.2f}"
     output_filename = os.path.join(data_folder, f"{base_name}.xml")
     print(f"Writing to {output_filename}...")
     try:
