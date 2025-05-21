@@ -5,8 +5,7 @@ import json
 import os
 import xml.etree.ElementTree as ET
 from datetime import datetime
-import decimal
-from decimal import Decimal
+from ß import ROUND_HALF_UP, Decimal, InvalidOperation
 
 import yaml
 
@@ -100,7 +99,7 @@ def load_product_prices(product_prices_file):
                         )
                         continue
                     product_prices[tally_name] = normal_price
-                except decimal.InvalidOperation:
+                except InvalidOperation:
                     print(
                         f"Error: Invalid price for product '{tally_name}': {row['Normal Price']}"
                     )
@@ -252,7 +251,7 @@ def read_woo_csv(data_folder, csv_file, sku_mapping, tally_products, product_pri
                             print(
                                 f"Warning: Tally product '{tally_name}' not found in tally_products"
                             )
-                except (KeyError, ValueError, decimal.InvalidOperation) as e:
+                except (KeyError, ValueError, InvalidOperation) as e:
                     print(
                         f"Error processing order {row.get('Order ID', 'unknown')}: {e}"
                     )
@@ -270,8 +269,10 @@ def create_tally_xml(data_folder, sales_data, base_name="Sales"):
         print(f"No sales data to process.")
         return None
     print(f"Generating XML for {len(sales_data)} total orders...")
+
     def round_decimal(value):
-        return Decimal(f"{value:.2f}")
+        return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
     envelope = ET.Element("ENVELOPE")
     header = ET.SubElement(envelope, "HEADER")
     ET.SubElement(header, "TALLYREQUEST").text = "Import Data"
@@ -307,7 +308,7 @@ def create_tally_xml(data_folder, sales_data, base_name="Sales"):
                 ET.SubElement(ledger_entry, "LEDGERNAME").text = product["name"]
                 ET.SubElement(ledger_entry, "ISDEEMEDPOSITIVE").text = "No"
                 base_amount = round_decimal(product["base_amount"])
-                ET.SubElement(ledger_entry, "AMOUNT").text = f"{base_amount:.2f}"
+                ET.SubElement(ledger_entry, "AMOUNT").text = str(base_amount)
                 total_entries_value += base_amount
             else:
                 inventory_entry = ET.SubElement(voucher, "ALLINVENTORYENTRIES.LIST")
@@ -315,15 +316,23 @@ def create_tally_xml(data_folder, sales_data, base_name="Sales"):
                 ET.SubElement(inventory_entry, "ISDEEMEDPOSITIVE").text = "No"
                 base_rate = round_decimal(product["base_rate"])
                 base_amount = round_decimal(product["base_amount"])
-                ET.SubElement(inventory_entry, "RATE").text = f"{base_rate:.2f}/Nos"
-                ET.SubElement(inventory_entry, "AMOUNT").text = f"{base_amount:.2f}"
-                ET.SubElement(inventory_entry, "ACTUALQTY").text = f"{product['quantity']} Nos"
-                ET.SubElement(inventory_entry, "BILLEDQTY").text = f"{product['quantity']} Nos"
-                ET.SubElement(inventory_entry, "GODOWNNAME").text = product["godown_name"]
-                accounting = ET.SubElement(inventory_entry, "ACCOUNTINGALLOCATIONS.LIST")
+                ET.SubElement(inventory_entry, "RATE").text = f"{base_rate}/Nos"
+                ET.SubElement(inventory_entry, "AMOUNT").text = str(base_amount)
+                ET.SubElement(
+                    inventory_entry, "ACTUALQTY"
+                ).text = f"{product['quantity']} Nos"
+                ET.SubElement(
+                    inventory_entry, "BILLEDQTY"
+                ).text = f"{product['quantity']} Nos"
+                ET.SubElement(inventory_entry, "GODOWNNAME").text = product[
+                    "godown_name"
+                ]
+                accounting = ET.SubElement(
+                    inventory_entry, "ACCOUNTINGALLOCATIONS.LIST"
+                )
                 ET.SubElement(accounting, "LEDGERNAME").text = product["ledger_name"]
                 ET.SubElement(accounting, "ISDEEMEDPOSITIVE").text = "No"
-                ET.SubElement(accounting, "AMOUNT").text = f"{base_amount:.2f}"
+                ET.SubElement(accounting, "AMOUNT").text = str(base_amount)
                 total_entries_value += base_amount
         if sale["is_domestic"]:
             gst_rates_used = {}
@@ -338,24 +347,25 @@ def create_tally_xml(data_folder, sales_data, base_name="Sales"):
                     gst_rates_used[gst_rate]["cgst"] += product["cgst_amount"]
                     gst_rates_used[gst_rate]["sgst"] += product["sgst_amount"]
             for gst_rate, amounts in gst_rates_used.items():
-                cgst_rate_percent = (gst_rate / Decimal("2")) * Decimal("100")
-                sgst_rate_percent = cgst_rate_percent
                 gst_ledgers = get_gst_ledgers(gst_rate, sale["is_domestic"])
                 if amounts["cgst"] > Decimal("0"):
                     cgst_amount = round_decimal(amounts["cgst"])
                     cgst_entry = ET.SubElement(voucher, "LEDGERENTRIES.LIST")
-                    ET.SubElement(cgst_entry, "LEDGERNAME").text = gst_ledgers["cgst_ledger"]
+                    ET.SubElement(cgst_entry, "LEDGERNAME").text = gst_ledgers[
+                        "cgst_ledger"
+                    ]
                     ET.SubElement(cgst_entry, "ISDEEMEDPOSITIVE").text = "No"
-                    ET.SubElement(cgst_entry, "AMOUNT").text = f"{cgst_amount:.2f}"
+                    ET.SubElement(cgst_entry, "AMOUNT").text = str(cgst_amount)
                     total_entries_value += cgst_amount
                 if amounts["sgst"] > Decimal("0"):
                     sgst_amount = round_decimal(amounts["sgst"])
                     sgst_entry = ET.SubElement(voucher, "LEDGERENTRIES.LIST")
-                    ET.SubElement(sgst_entry, "LEDGERNAME").text = gst_ledgers["sgst_ledger"]
+                    ET.SubElement(sgst_entry, "LEDGERNAME").text = gst_ledgers[
+                        "sgst_ledger"
+                    ]
                     ET.SubElement(sgst_entry, "ISDEEMEDPOSITIVE").text = "No"
-                    ET.SubElement(sgst_entry, "AMOUNT").text = f"{sgst_amount:.2f}"
+                    ET.SubElement(sgst_entry, "AMOUNT").text = str(sgst_amount)
                     total_entries_value += sgst_amount
-        total_entries_value = round_decimal(total_entries_value)
         sale_amount = round_decimal(sale["amount"])
         rounding_diff = sale_amount - total_entries_value
         if abs(rounding_diff) >= Decimal("0.01"):
@@ -363,12 +373,12 @@ def create_tally_xml(data_folder, sales_data, base_name="Sales"):
             ET.SubElement(rounding_entry, "LEDGERNAME").text = "Rounding Off"
             is_deemed_positive = "Yes" if rounding_diff < Decimal("0") else "No"
             ET.SubElement(rounding_entry, "ISDEEMEDPOSITIVE").text = is_deemed_positive
-            ET.SubElement(rounding_entry, "AMOUNT").text = f"{abs(rounding_diff):.2f}"
+            ET.SubElement(rounding_entry, "AMOUNT").text = str(abs(rounding_diff))
             total_entries_value += rounding_diff
         party_entry = ET.SubElement(voucher, "LEDGERENTRIES.LIST")
         ET.SubElement(party_entry, "LEDGERNAME").text = sale["party_ledger"]
         ET.SubElement(party_entry, "ISDEEMEDPOSITIVE").text = "Yes"
-        ET.SubElement(party_entry, "AMOUNT").text = f"-{sale_amount:.2f}"
+        ET.SubElement(party_entry, "AMOUNT").text = f"-{sale_amount}"
     output_filename = os.path.join(data_folder, f"{base_name}.xml")
     print(f"Writing to {output_filename}...")
     try:
