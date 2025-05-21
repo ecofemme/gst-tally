@@ -286,6 +286,7 @@ def create_tally_xml(data_folder, sales_data, base_name="Sales"):
         ET.SubElement(voucher, "FBTPAYMENTTYPE").text = "Default"
         ET.SubElement(voucher, "PERSISTEDVIEW").text = "Invoice Voucher View"
         ET.SubElement(voucher, "NARRATION").text = sale["narration"]
+        total_entries_value = 0.0
         for product in sale["products"]:
             if not product["godown_name"]:
                 ledger_entry = ET.SubElement(voucher, "LEDGERENTRIES.LIST")
@@ -294,6 +295,7 @@ def create_tally_xml(data_folder, sales_data, base_name="Sales"):
                 ET.SubElement(
                     ledger_entry, "AMOUNT"
                 ).text = f"{product['base_amount']:.2f}"
+                total_entries_value += product['base_amount']
             else:
                 inventory_entry = ET.SubElement(voucher, "ALLINVENTORYENTRIES.LIST")
                 ET.SubElement(inventory_entry, "STOCKITEMNAME").text = product["name"]
@@ -321,6 +323,7 @@ def create_tally_xml(data_folder, sales_data, base_name="Sales"):
                 ET.SubElement(
                     accounting, "AMOUNT"
                 ).text = f"{product['base_amount']:.2f}"
+                total_entries_value += product['base_amount']
         if sale["is_domestic"]:
             gst_rates_used = {}
             for product in sale["products"]:
@@ -335,23 +338,36 @@ def create_tally_xml(data_folder, sales_data, base_name="Sales"):
                 sgst_rate_percent = cgst_rate_percent
                 gst_ledgers = get_gst_ledgers(gst_rate, sale["is_domestic"])
                 if amounts["cgst"] > 0:
+                    cgst_amount = round(amounts["cgst"], 2)
                     cgst_entry = ET.SubElement(voucher, "LEDGERENTRIES.LIST")
                     ET.SubElement(cgst_entry, "LEDGERNAME").text = gst_ledgers[
                         "cgst_ledger"
                     ]
                     ET.SubElement(cgst_entry, "ISDEEMEDPOSITIVE").text = "No"
-                    ET.SubElement(cgst_entry, "AMOUNT").text = f"{amounts['cgst']:.2f}"
+                    ET.SubElement(cgst_entry, "AMOUNT").text = f"{cgst_amount:.2f}"
+                    total_entries_value += cgst_amount
                 if amounts["sgst"] > 0:
+                    sgst_amount = round(amounts["sgst"], 2)
                     sgst_entry = ET.SubElement(voucher, "LEDGERENTRIES.LIST")
                     ET.SubElement(sgst_entry, "LEDGERNAME").text = gst_ledgers[
                         "sgst_ledger"
                     ]
                     ET.SubElement(sgst_entry, "ISDEEMEDPOSITIVE").text = "No"
-                    ET.SubElement(sgst_entry, "AMOUNT").text = f"{amounts['sgst']:.2f}"
+                    ET.SubElement(sgst_entry, "AMOUNT").text = f"{sgst_amount:.2f}"
+                    total_entries_value += sgst_amount
+        total_entries_value = round(total_entries_value, 2)
+        sale_amount = round(sale["amount"], 2)
+        rounding_diff = round(sale_amount - total_entries_value, 2)
+        if rounding_diff != 0.0:
+            rounding_entry = ET.SubElement(voucher, "LEDGERENTRIES.LIST")
+            ET.SubElement(rounding_entry, "LEDGERNAME").text = "Rounding Off"
+            is_deemed_positive = "Yes" if rounding_diff < 0 else "No"
+            ET.SubElement(rounding_entry, "ISDEEMEDPOSITIVE").text = is_deemed_positive
+            ET.SubElement(rounding_entry, "AMOUNT").text = f"{abs(rounding_diff):.2f}"
         party_entry = ET.SubElement(voucher, "LEDGERENTRIES.LIST")
         ET.SubElement(party_entry, "LEDGERNAME").text = sale["party_ledger"]
         ET.SubElement(party_entry, "ISDEEMEDPOSITIVE").text = "Yes"
-        ET.SubElement(party_entry, "AMOUNT").text = f"-{sale['amount']:.2f}"
+        ET.SubElement(party_entry, "AMOUNT").text = f"-{sale_amount:.2f}"
     output_filename = os.path.join(data_folder, f"{base_name}.xml")
     print(f"Writing to {output_filename}...")
     try:
