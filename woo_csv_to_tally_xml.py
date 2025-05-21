@@ -32,6 +32,8 @@ def load_config(config_file="config.yaml"):
                 f"Error: Missing required configuration fields: {', '.join(missing_fields)}"
             )
             return None
+        if config["data_folder"].startswith("~"):
+            config["data_folder"] = os.path.expanduser(config["data_folder"])
         if not os.path.isabs(config["data_folder"]):
             print(
                 f"Error: data_folder '{config['data_folder']}' must be an absolute path!"
