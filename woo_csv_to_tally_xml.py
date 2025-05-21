@@ -270,6 +270,8 @@ def create_tally_xml(data_folder, sales_data, base_name="Sales"):
         print(f"No sales data to process.")
         return None
     print(f"Generating XML for {len(sales_data)} total orders...")
+    def round_decimal(value):
+        return Decimal(f"{value:.2f}")
     envelope = ET.Element("ENVELOPE")
     header = ET.SubElement(envelope, "HEADER")
     ET.SubElement(header, "TALLYREQUEST").text = "Import Data"
@@ -304,38 +306,25 @@ def create_tally_xml(data_folder, sales_data, base_name="Sales"):
                 ledger_entry = ET.SubElement(voucher, "LEDGERENTRIES.LIST")
                 ET.SubElement(ledger_entry, "LEDGERNAME").text = product["name"]
                 ET.SubElement(ledger_entry, "ISDEEMEDPOSITIVE").text = "No"
-                ET.SubElement(
-                    ledger_entry, "AMOUNT"
-                ).text = f"{product['base_amount']:.2f}"
-                total_entries_value += product["base_amount"]
+                base_amount = round_decimal(product["base_amount"])
+                ET.SubElement(ledger_entry, "AMOUNT").text = f"{base_amount:.2f}"
+                total_entries_value += base_amount
             else:
                 inventory_entry = ET.SubElement(voucher, "ALLINVENTORYENTRIES.LIST")
                 ET.SubElement(inventory_entry, "STOCKITEMNAME").text = product["name"]
                 ET.SubElement(inventory_entry, "ISDEEMEDPOSITIVE").text = "No"
-                ET.SubElement(
-                    inventory_entry, "RATE"
-                ).text = f"{product['base_rate']:.2f}/Nos"
-                ET.SubElement(
-                    inventory_entry, "AMOUNT"
-                ).text = f"{product['base_amount']:.2f}"
-                ET.SubElement(
-                    inventory_entry, "ACTUALQTY"
-                ).text = f"{product['quantity']} Nos"
-                ET.SubElement(
-                    inventory_entry, "BILLEDQTY"
-                ).text = f"{product['quantity']} Nos"
-                ET.SubElement(inventory_entry, "GODOWNNAME").text = product[
-                    "godown_name"
-                ]
-                accounting = ET.SubElement(
-                    inventory_entry, "ACCOUNTINGALLOCATIONS.LIST"
-                )
+                base_rate = round_decimal(product["base_rate"])
+                base_amount = round_decimal(product["base_amount"])
+                ET.SubElement(inventory_entry, "RATE").text = f"{base_rate:.2f}/Nos"
+                ET.SubElement(inventory_entry, "AMOUNT").text = f"{base_amount:.2f}"
+                ET.SubElement(inventory_entry, "ACTUALQTY").text = f"{product['quantity']} Nos"
+                ET.SubElement(inventory_entry, "BILLEDQTY").text = f"{product['quantity']} Nos"
+                ET.SubElement(inventory_entry, "GODOWNNAME").text = product["godown_name"]
+                accounting = ET.SubElement(inventory_entry, "ACCOUNTINGALLOCATIONS.LIST")
                 ET.SubElement(accounting, "LEDGERNAME").text = product["ledger_name"]
                 ET.SubElement(accounting, "ISDEEMEDPOSITIVE").text = "No"
-                ET.SubElement(
-                    accounting, "AMOUNT"
-                ).text = f"{product['base_amount']:.2f}"
-                total_entries_value += product["base_amount"]
+                ET.SubElement(accounting, "AMOUNT").text = f"{base_amount:.2f}"
+                total_entries_value += base_amount
         if sale["is_domestic"]:
             gst_rates_used = {}
             for product in sale["products"]:
@@ -353,32 +342,29 @@ def create_tally_xml(data_folder, sales_data, base_name="Sales"):
                 sgst_rate_percent = cgst_rate_percent
                 gst_ledgers = get_gst_ledgers(gst_rate, sale["is_domestic"])
                 if amounts["cgst"] > Decimal("0"):
-                    cgst_amount = amounts["cgst"]
+                    cgst_amount = round_decimal(amounts["cgst"])
                     cgst_entry = ET.SubElement(voucher, "LEDGERENTRIES.LIST")
-                    ET.SubElement(cgst_entry, "LEDGERNAME").text = gst_ledgers[
-                        "cgst_ledger"
-                    ]
+                    ET.SubElement(cgst_entry, "LEDGERNAME").text = gst_ledgers["cgst_ledger"]
                     ET.SubElement(cgst_entry, "ISDEEMEDPOSITIVE").text = "No"
                     ET.SubElement(cgst_entry, "AMOUNT").text = f"{cgst_amount:.2f}"
                     total_entries_value += cgst_amount
                 if amounts["sgst"] > Decimal("0"):
-                    sgst_amount = amounts["sgst"]
+                    sgst_amount = round_decimal(amounts["sgst"])
                     sgst_entry = ET.SubElement(voucher, "LEDGERENTRIES.LIST")
-                    ET.SubElement(sgst_entry, "LEDGERNAME").text = gst_ledgers[
-                        "sgst_ledger"
-                    ]
+                    ET.SubElement(sgst_entry, "LEDGERNAME").text = gst_ledgers["sgst_ledger"]
                     ET.SubElement(sgst_entry, "ISDEEMEDPOSITIVE").text = "No"
                     ET.SubElement(sgst_entry, "AMOUNT").text = f"{sgst_amount:.2f}"
                     total_entries_value += sgst_amount
-        total_entries_value = Decimal(f"{total_entries_value:.2f}")
-        sale_amount = Decimal(f"{sale['amount']:.2f}")
+        total_entries_value = round_decimal(total_entries_value)
+        sale_amount = round_decimal(sale["amount"])
         rounding_diff = sale_amount - total_entries_value
-        if True:
+        if abs(rounding_diff) >= Decimal("0.01"):
             rounding_entry = ET.SubElement(voucher, "LEDGERENTRIES.LIST")
             ET.SubElement(rounding_entry, "LEDGERNAME").text = "Rounding Off"
             is_deemed_positive = "Yes" if rounding_diff < Decimal("0") else "No"
             ET.SubElement(rounding_entry, "ISDEEMEDPOSITIVE").text = is_deemed_positive
             ET.SubElement(rounding_entry, "AMOUNT").text = f"{abs(rounding_diff):.2f}"
+            total_entries_value += rounding_diff
         party_entry = ET.SubElement(voucher, "LEDGERENTRIES.LIST")
         ET.SubElement(party_entry, "LEDGERNAME").text = sale["party_ledger"]
         ET.SubElement(party_entry, "ISDEEMEDPOSITIVE").text = "Yes"
