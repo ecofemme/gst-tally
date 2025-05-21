@@ -371,7 +371,7 @@ def create_tally_xml(data_folder, sales_data, base_name="Sales"):
                     ET.SubElement(sgst_entry, "AMOUNT").text = f"{sgst_amount:.2f}"
                     total_entries_value += sgst_amount
         rounding_diff = sale["amount"] - total_entries_value
-        if abs(rounding_diff) > Decimal("0.01"):
+        if abs(rounding_diff) >= Decimal("0.01"):
             rounding_entry = ET.SubElement(voucher, "LEDGERENTRIES.LIST")
             ET.SubElement(rounding_entry, "LEDGERNAME").text = "Rounding Off"
             is_deemed_positive = "Yes" if rounding_diff < Decimal("0") else "No"
