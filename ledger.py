@@ -8,8 +8,8 @@ def get_gst_ledgers(gst_rate, is_domestic):
     cgst_rate_percent = rate_percent / Decimal("2")
     sgst_rate_percent = cgst_rate_percent
     return {
-        "cgst_ledger": f"CGST Collected @ {cgst_rate_percent:g}%",
-        "sgst_ledger": f"SGST Collected @ {sgst_rate_percent:g}%",
+        "cgst_ledger": f"CGST Collected @ {cgst_rate_percent:.1g}%",
+        "sgst_ledger": f"SGST Collected @ {sgst_rate_percent:.1g}%",
     }
 
 
