@@ -5,6 +5,8 @@ import json
 import os
 import xml.etree.ElementTree as ET
 from datetime import datetime
+import decimal
+from decimal import Decimal
 
 import yaml
 
@@ -58,7 +60,7 @@ def load_tally_products(tally_products_file):
                 tally_name = row["Tally Name"].strip()
                 gst_percentage = row["GST Percentage"].strip()
                 godown_name = row["Godown Name"].strip()
-                gst_rate = float(gst_percentage.replace("%", "")) / 100
+                gst_rate = Decimal(gst_percentage.replace("%", "")) / Decimal("100")
                 tally_products[tally_name] = {
                     "gst_rate": gst_rate,
                     "godown_name": godown_name,
@@ -91,14 +93,14 @@ def load_product_prices(product_prices_file):
             for row in reader:
                 tally_name = row["Tally Name"].strip()
                 try:
-                    normal_price = float(row["Normal Price"])
-                    if normal_price <= 0:
+                    normal_price = Decimal(row["Normal Price"])
+                    if normal_price <= Decimal("0"):
                         print(
                             f"Error: Normal price for '{tally_name}' must be positive"
                         )
                         continue
                     product_prices[tally_name] = normal_price
-                except ValueError:
+                except decimal.InvalidOperation:
                     print(
                         f"Error: Invalid price for product '{tally_name}': {row['Normal Price']}"
                     )
@@ -160,7 +162,7 @@ def read_woo_csv(data_folder, csv_file, sku_mapping, tally_products, product_pri
                         )
                         customer_phone = row["Billing Phone"] or "N/A"
                         customer_email = row["Billing Email Address"] or "N/A"
-                        amount = float(row["Order Total"].replace(",", ""))
+                        amount = Decimal(row["Order Total"].replace(",", ""))
                         country = row["Billing Country"]
                         party_ledger = get_party_ledger(country)
                         is_domestic = country == "IN"
@@ -175,15 +177,17 @@ def read_woo_csv(data_folder, csv_file, sku_mapping, tally_products, product_pri
                         }
                     sku = row["SKU"].strip() if "SKU" in row else ""
                     tally_names = get_tally_products_by_sku(sku, sku_mapping)
-                    quantity = int(float(row.get("Quantity", "1").replace(",", "")))
-                    item_cost = float(row.get("Item Cost", "0").replace(",", ""))
+                    quantity = int(Decimal(row.get("Quantity", "1").replace(",", "")))
+                    item_cost = Decimal(row.get("Item Cost", "0").replace(",", ""))
                     for tally_name in tally_names:
                         if tally_name in tally_products:
                             product_details = tally_products[tally_name]
                             gst_rate = product_details["gst_rate"]
                             godown_name = product_details["godown_name"]
                             gst_rate = (
-                                gst_rate if sales_data[order_id]["is_domestic"] else 0.0
+                                gst_rate
+                                if sales_data[order_id]["is_domestic"]
+                                else Decimal("0.0")
                             )
                             ledger_name = get_sales_ledger(
                                 gst_rate, sales_data[order_id]["is_domestic"]
@@ -211,18 +215,26 @@ def read_woo_csv(data_folder, csv_file, sku_mapping, tally_products, product_pri
                             else:
                                 product_base_cost = item_cost
                             base_rate = (
-                                product_base_cost / (1 + gst_rate)
-                                if gst_rate > 0
+                                product_base_cost / (Decimal("1") + gst_rate)
+                                if gst_rate > Decimal("0")
                                 else product_base_cost
                             )
-                            total_base = base_rate * quantity
+                            total_base = base_rate * Decimal(str(quantity))
                             total_gst = (
-                                (product_base_cost - base_rate) * quantity
-                                if gst_rate > 0
-                                else 0.0
+                                (product_base_cost - base_rate) * Decimal(str(quantity))
+                                if gst_rate > Decimal("0")
+                                else Decimal("0.0")
                             )
-                            cgst_amount = total_gst / 2 if gst_rate > 0 else 0.0
-                            sgst_amount = total_gst / 2 if gst_rate > 0 else 0.0
+                            cgst_amount = (
+                                total_gst / Decimal("2")
+                                if gst_rate > Decimal("0")
+                                else Decimal("0.0")
+                            )
+                            sgst_amount = (
+                                total_gst / Decimal("2")
+                                if gst_rate > Decimal("0")
+                                else Decimal("0.0")
+                            )
                             sales_data[order_id]["products"].append(
                                 {
                                     "name": tally_name,
@@ -240,7 +252,7 @@ def read_woo_csv(data_folder, csv_file, sku_mapping, tally_products, product_pri
                             print(
                                 f"Warning: Tally product '{tally_name}' not found in tally_products"
                             )
-                except (KeyError, ValueError) as e:
+                except (KeyError, ValueError, decimal.InvalidOperation) as e:
                     print(
                         f"Error processing order {row.get('Order ID', 'unknown')}: {e}"
                     )
@@ -286,7 +298,7 @@ def create_tally_xml(data_folder, sales_data, base_name="Sales"):
         ET.SubElement(voucher, "FBTPAYMENTTYPE").text = "Default"
         ET.SubElement(voucher, "PERSISTEDVIEW").text = "Invoice Voucher View"
         ET.SubElement(voucher, "NARRATION").text = sale["narration"]
-        total_entries_value = 0.0
+        total_entries_value = Decimal("0.0")
         for product in sale["products"]:
             if not product["godown_name"]:
                 ledger_entry = ET.SubElement(voucher, "LEDGERENTRIES.LIST")
@@ -295,7 +307,7 @@ def create_tally_xml(data_folder, sales_data, base_name="Sales"):
                 ET.SubElement(
                     ledger_entry, "AMOUNT"
                 ).text = f"{product['base_amount']:.2f}"
-                total_entries_value += product['base_amount']
+                total_entries_value += product["base_amount"]
             else:
                 inventory_entry = ET.SubElement(voucher, "ALLINVENTORYENTRIES.LIST")
                 ET.SubElement(inventory_entry, "STOCKITEMNAME").text = product["name"]
@@ -323,22 +335,25 @@ def create_tally_xml(data_folder, sales_data, base_name="Sales"):
                 ET.SubElement(
                     accounting, "AMOUNT"
                 ).text = f"{product['base_amount']:.2f}"
-                total_entries_value += product['base_amount']
+                total_entries_value += product["base_amount"]
         if sale["is_domestic"]:
             gst_rates_used = {}
             for product in sale["products"]:
-                if product["gst_rate"] > 0:
+                if product["gst_rate"] > Decimal("0"):
                     gst_rate = product["gst_rate"]
                     if gst_rate not in gst_rates_used:
-                        gst_rates_used[gst_rate] = {"cgst": 0, "sgst": 0}
+                        gst_rates_used[gst_rate] = {
+                            "cgst": Decimal("0"),
+                            "sgst": Decimal("0"),
+                        }
                     gst_rates_used[gst_rate]["cgst"] += product["cgst_amount"]
                     gst_rates_used[gst_rate]["sgst"] += product["sgst_amount"]
             for gst_rate, amounts in gst_rates_used.items():
-                cgst_rate_percent = (gst_rate / 2) * 100
+                cgst_rate_percent = (gst_rate / Decimal("2")) * Decimal("100")
                 sgst_rate_percent = cgst_rate_percent
                 gst_ledgers = get_gst_ledgers(gst_rate, sale["is_domestic"])
-                if amounts["cgst"] > 0:
-                    cgst_amount = round(amounts["cgst"], 2)
+                if amounts["cgst"] > Decimal("0"):
+                    cgst_amount = amounts["cgst"]
                     cgst_entry = ET.SubElement(voucher, "LEDGERENTRIES.LIST")
                     ET.SubElement(cgst_entry, "LEDGERNAME").text = gst_ledgers[
                         "cgst_ledger"
@@ -346,8 +361,8 @@ def create_tally_xml(data_folder, sales_data, base_name="Sales"):
                     ET.SubElement(cgst_entry, "ISDEEMEDPOSITIVE").text = "No"
                     ET.SubElement(cgst_entry, "AMOUNT").text = f"{cgst_amount:.2f}"
                     total_entries_value += cgst_amount
-                if amounts["sgst"] > 0:
-                    sgst_amount = round(amounts["sgst"], 2)
+                if amounts["sgst"] > Decimal("0"):
+                    sgst_amount = amounts["sgst"]
                     sgst_entry = ET.SubElement(voucher, "LEDGERENTRIES.LIST")
                     ET.SubElement(sgst_entry, "LEDGERNAME").text = gst_ledgers[
                         "sgst_ledger"
@@ -355,19 +370,17 @@ def create_tally_xml(data_folder, sales_data, base_name="Sales"):
                     ET.SubElement(sgst_entry, "ISDEEMEDPOSITIVE").text = "No"
                     ET.SubElement(sgst_entry, "AMOUNT").text = f"{sgst_amount:.2f}"
                     total_entries_value += sgst_amount
-        total_entries_value = round(total_entries_value, 2)
-        sale_amount = round(sale["amount"], 2)
-        rounding_diff = round(sale_amount - total_entries_value, 2)
-        if rounding_diff != 0.0:
+        rounding_diff = sale["amount"] - total_entries_value
+        if rounding_diff != Decimal("0.0"):
             rounding_entry = ET.SubElement(voucher, "LEDGERENTRIES.LIST")
             ET.SubElement(rounding_entry, "LEDGERNAME").text = "Rounding Off"
-            is_deemed_positive = "Yes" if rounding_diff < 0 else "No"
+            is_deemed_positive = "Yes" if rounding_diff < Decimal("0") else "No"
             ET.SubElement(rounding_entry, "ISDEEMEDPOSITIVE").text = is_deemed_positive
             ET.SubElement(rounding_entry, "AMOUNT").text = f"{abs(rounding_diff):.2f}"
         party_entry = ET.SubElement(voucher, "LEDGERENTRIES.LIST")
         ET.SubElement(party_entry, "LEDGERNAME").text = sale["party_ledger"]
         ET.SubElement(party_entry, "ISDEEMEDPOSITIVE").text = "Yes"
-        ET.SubElement(party_entry, "AMOUNT").text = f"-{sale_amount:.2f}"
+        ET.SubElement(party_entry, "AMOUNT").text = f"-{sale['amount']:.2f}"
     output_filename = os.path.join(data_folder, f"{base_name}.xml")
     print(f"Writing to {output_filename}...")
     try:
@@ -430,11 +443,15 @@ def main():
         base_name = f"{tally_prefix}{suffix}"
         output_filename = os.path.join(data_folder, f"{base_name}.xml")
         if os.path.exists(output_filename):
-            print(f"\nSkipping {filename}... Output file {os.path.basename(output_filename)} already exists.")
+            print(
+                f"\nSkipping {filename}... Output file {os.path.basename(output_filename)} already exists."
+            )
             skipped_count += 1
             continue
         print(f"\nProcessing {csv_file}...")
-        sales_data = read_woo_csv(data_folder, csv_file, sku_mapping, tally_products, product_prices)
+        sales_data = read_woo_csv(
+            data_folder, csv_file, sku_mapping, tally_products, product_prices
+        )
         if sales_data:
             domestic_count = len([sale for sale in sales_data if sale["is_domestic"]])
             international_count = len(
@@ -454,7 +471,9 @@ def main():
                 print("No sales file generated for this CSV.")
         else:
             print("No valid sales data processed for this CSV. Check your file.")
-    print(f"\nProcessed {processed_count} CSV files, skipped {skipped_count} CSV files (already processed).")
+    print(
+        f"\nProcessed {processed_count} CSV files, skipped {skipped_count} CSV files (already processed)."
+    )
     print("\nYou can now import the generated XML files into Tally.")
 
 

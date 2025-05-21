@@ -1,8 +1,11 @@
+from decimal import Decimal
+
+
 def get_gst_ledgers(gst_rate, is_domestic):
-    if not is_domestic or gst_rate <= 0:
+    if not is_domestic or gst_rate <= Decimal("0"):
         return None
-    rate_percent = gst_rate * 100
-    cgst_rate_percent = rate_percent / 2
+    rate_percent = gst_rate * Decimal("100")
+    cgst_rate_percent = rate_percent / Decimal("2")
     sgst_rate_percent = cgst_rate_percent
     return {
         "cgst_ledger": f"CGST Collected @ {cgst_rate_percent:g}%",
@@ -13,8 +16,8 @@ def get_gst_ledgers(gst_rate, is_domestic):
 def get_sales_ledger(gst_rate, is_domestic):
     if not is_domestic:
         return "Export Sales"
-    elif gst_rate > 0:
-        rate_percent = gst_rate * 100
+    elif gst_rate > Decimal("0"):
+        rate_percent = gst_rate * Decimal("100")
         return f"Local GST Sales @ {rate_percent:.0f}%"
     else:
         return "Local Exempt Sales"
