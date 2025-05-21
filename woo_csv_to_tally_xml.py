@@ -429,6 +429,7 @@ def main():
             sales_file = create_tally_xml(data_folder, sales_data, base_name=base_name)
             total_processed = len(sales_data)
             print(f"Processed {total_processed} completed orders.")
+            processed_count += 1
             if sales_file:
                 print(
                     f"All orders (domestic and international) saved to '{sales_file}' ({total_processed} orders)."
