@@ -5,7 +5,7 @@ import json
 import os
 import xml.etree.ElementTree as ET
 from datetime import datetime
-from ß import ROUND_HALF_UP, Decimal, InvalidOperation
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 import yaml
 
