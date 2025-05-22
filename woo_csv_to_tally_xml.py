@@ -393,6 +393,64 @@ def create_tally_xml(data_folder, sales_data, base_name="Sales"):
         return None
 
 
+def create_debug_csv(data_folder, sales_data, base_name="Sales_Debug"):
+    if not sales_data:
+        return None
+    import csv
+    output_filename = os.path.join(data_folder, f"{base_name}.csv")
+    with open(output_filename, "w", newline="", encoding="utf-8") as csvfile:
+        fieldnames = [
+            "order_id",
+            "product_name",
+            "quantity",
+            "item_cost",
+            "gst_rate_percent",
+            "base_rate",
+            "total_base",
+            "total_gst",
+            "cgst_amount",
+            "sgst_amount",
+            "order_total",
+            "calculated_total",
+            "difference",
+        ]
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        writer.writeheader()
+        for sale in sales_data:
+            calculated_total = Decimal("0.0")
+            for product in sale["products"]:
+                gst_rate_percent = product["gst_rate"] * Decimal("100")
+                product_total = round_decimal(
+                    product["base_amount"]
+                    + product["cgst_amount"]
+                    + product["sgst_amount"]
+                )
+                calculated_total += product_total
+                writer.writerow(
+                    {
+                        "order_id": sale["voucher_number"],
+                        "product_name": product["name"],
+                        "quantity": product["quantity"],
+                        "item_cost": "N/A",
+                        "gst_rate_percent": gst_rate_percent,
+                        "base_rate": product["base_rate"],
+                        "total_base": product["base_amount"],
+                        "total_gst": product["cgst_amount"] + product["sgst_amount"],
+                        "cgst_amount": product["cgst_amount"],
+                        "sgst_amount": product["sgst_amount"],
+                        "order_total": sale["amount"],
+                        "calculated_total": calculated_total
+                        if product == sale["products"][-1]
+                        else "",
+                        "difference": sale["amount"] - calculated_total
+                        if product == sale["products"][-1]
+                        else "",
+                    }
+                )
+    print(f"Debug CSV written to {output_filename}")
+    return output_filename
+
+
 def main():
     print("WooCommerce CSV to Tally XML Converter with SKU-based Mapping")
     parser = argparse.ArgumentParser(
@@ -460,6 +518,7 @@ def main():
             print(f"Domestic orders detected: {domestic_count}")
             print(f"International orders detected: {international_count}")
             sales_file = create_tally_xml(data_folder, sales_data, base_name=base_name)
+            debug_file = create_debug_csv(data_folder, sales_data, base_name=base_name)
             total_processed = len(sales_data)
             print(f"Processed {total_processed} completed orders.")
             processed_count += 1
