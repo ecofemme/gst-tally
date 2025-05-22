@@ -139,6 +139,10 @@ def get_tally_products_by_sku(sku, sku_mapping):
         return []
 
 
+def round_decimal(value):
+    return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
 def read_woo_csv(data_folder, csv_file, sku_mapping, tally_products, product_prices):
     file_path = os.path.join(data_folder, csv_file)
     sales_data = {}
@@ -213,23 +217,25 @@ def read_woo_csv(data_folder, csv_file, sku_mapping, tally_products, product_pri
                                 )
                             else:
                                 product_base_cost = item_cost
-                            base_rate = (
+                            base_rate = round_decimal(
                                 product_base_cost / (Decimal("1") + gst_rate)
                                 if gst_rate > Decimal("0")
                                 else product_base_cost
                             )
-                            total_base = base_rate * Decimal(str(quantity))
-                            total_gst = (
+                            total_base = round_decimal(
+                                base_rate * Decimal(str(quantity))
+                            )
+                            total_gst = round_decimal(
                                 (product_base_cost - base_rate) * Decimal(str(quantity))
                                 if gst_rate > Decimal("0")
                                 else Decimal("0.0")
                             )
-                            cgst_amount = (
+                            cgst_amount = round_decimal(
                                 total_gst / Decimal("2")
                                 if gst_rate > Decimal("0")
                                 else Decimal("0.0")
                             )
-                            sgst_amount = (
+                            sgst_amount = round_decimal(
                                 total_gst / Decimal("2")
                                 if gst_rate > Decimal("0")
                                 else Decimal("0.0")
@@ -269,10 +275,6 @@ def create_tally_xml(data_folder, sales_data, base_name="Sales"):
         print(f"No sales data to process.")
         return None
     print(f"Generating XML for {len(sales_data)} total orders...")
-
-    def round_decimal(value):
-        return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-
     envelope = ET.Element("ENVELOPE")
     header = ET.SubElement(envelope, "HEADER")
     ET.SubElement(header, "TALLYREQUEST").text = "Import Data"
