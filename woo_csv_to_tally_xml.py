@@ -303,6 +303,13 @@ def create_tally_xml(data_folder, sales_data, base_name="Sales"):
         ET.SubElement(voucher, "FBTPAYMENTTYPE").text = "Default"
         ET.SubElement(voucher, "PERSISTEDVIEW").text = "Invoice Voucher View"
         ET.SubElement(voucher, "NARRATION").text = sale["narration"]
+
+        sale_amount = round_decimal(sale["amount"])
+        party_entry = ET.SubElement(voucher, "LEDGERENTRIES.LIST")
+        ET.SubElement(party_entry, "LEDGERNAME").text = sale["party_ledger"]
+        ET.SubElement(party_entry, "ISDEEMEDPOSITIVE").text = "Yes"
+        ET.SubElement(party_entry, "AMOUNT").text = f"-{sale_amount}"
+
         total_entries_value = Decimal("0.0")
         for product in sale["products"]:
             if not product["godown_name"]:
@@ -368,7 +375,6 @@ def create_tally_xml(data_folder, sales_data, base_name="Sales"):
                     ET.SubElement(sgst_entry, "ISDEEMEDPOSITIVE").text = "No"
                     ET.SubElement(sgst_entry, "AMOUNT").text = str(sgst_amount)
                     total_entries_value += sgst_amount
-        sale_amount = round_decimal(sale["amount"])
         rounding_diff = sale_amount - total_entries_value
         if abs(rounding_diff) >= Decimal("0.01"):
             rounding_entry = ET.SubElement(voucher, "LEDGERENTRIES.LIST")
@@ -377,10 +383,6 @@ def create_tally_xml(data_folder, sales_data, base_name="Sales"):
             ET.SubElement(rounding_entry, "ISDEEMEDPOSITIVE").text = is_deemed_positive
             ET.SubElement(rounding_entry, "AMOUNT").text = str(rounding_diff)
             total_entries_value += rounding_diff
-        party_entry = ET.SubElement(voucher, "LEDGERENTRIES.LIST")
-        ET.SubElement(party_entry, "LEDGERNAME").text = sale["party_ledger"]
-        ET.SubElement(party_entry, "ISDEEMEDPOSITIVE").text = "Yes"
-        ET.SubElement(party_entry, "AMOUNT").text = f"-{sale_amount}"
     output_filename = os.path.join(data_folder, f"{base_name}.xml")
     print(f"Writing to {output_filename}...")
     try:
