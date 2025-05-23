@@ -35,12 +35,14 @@ A tool to convert WooCommerce order exports to Tally-compatible XML import files
 **You need to update three files:**
 
 1. **`tally_products.csv`** - Add product with GST rate and warehouse:
+
    ```csv
    Tally Name,GST Percentage,Godown Name
    New Organic Pad,5%,Eco Femme
    ```
 
 2. **`woo_sku_to_tally.json`** - Map the WooCommerce SKU to the product:
+
    ```json
    "NEW-SKU": ["New Organic Pad"]
    ```
@@ -54,15 +56,18 @@ A tool to convert WooCommerce order exports to Tally-compatible XML import files
 ### When Prices Change
 
 Update the price in **`tally_product_prices.csv`**:
+
 ```csv
 Tally Name,Normal Price
 SHE cups,950
 ```
-*Note: This only affects bundled products. Single products use WooCommerce prices directly.*
+
+_Note: This only affects bundled products. Single products use WooCommerce prices directly._
 
 ### When GST Rates Change
 
 Update the GST percentage in **`tally_products.csv`**:
+
 ```csv
 Tally Name,GST Percentage,Godown Name
 Travel pouch,12%,Eco Femme
@@ -84,12 +89,14 @@ Travel pouch,12%,Eco Femme
 ### Installation Steps
 
 1. **Download the project**:
+
    ```bash
    git clone https://github.com/aurovilledotcom/gst-tally.git
    cd gst-tally
    ```
 
 2. **Install dependencies**:
+
    ```bash
    uv venv
    uv sync
@@ -102,6 +109,7 @@ Travel pouch,12%,Eco Femme
 ### Configuration Files Setup
 
 #### `config.yaml` - Main Settings
+
 ```yaml
 data_folder: ~/Woo Orders
 woo_prefix: Orders-Export
@@ -112,6 +120,7 @@ product_prices_file: tally_product_prices.csv
 ```
 
 #### `tally_products.csv` - Product Information
+
 ```csv
 Tally Name,GST Percentage,Godown Name
 Natural Organic Day Pad,0%,Eco Femme
@@ -122,6 +131,7 @@ Pad for Pad scheme,0%,
 ```
 
 #### `woo_sku_to_tally.json` - SKU Mapping
+
 ```json
 {
   "EF-n-DP": ["Natural Organic Day Pad"],
@@ -132,6 +142,7 @@ Pad for Pad scheme,0%,
 ```
 
 #### `tally_product_prices.csv` - Standard Prices
+
 ```csv
 Tally Name,Normal Price
 Natural Organic starter kit,915
@@ -142,23 +153,54 @@ Book,499
 
 ### Creating a Desktop Launcher (Optional)
 
-To create a desktop shortcut:
+#### Command Line Usage
 
 **For GUI version**:
+
 ```bash
 uv run gst-tally-gui
 ```
 
 **For command line version**:
+
 ```bash
 uv run gst-tally
 ```
+
+#### Linux Desktop Shortcut
+
+Create a desktop shortcut file for easy access:
+
+1. **Create the desktop entry file**:
+
+   ```bash
+   nano ~/.local/share/applications/gst-tally.desktop
+   ```
+
+2. **Add the following content** (adjust the path to match your installation):
+
+   ```ini
+   [Desktop Entry]
+   Version=0.0.1
+   Type=Application
+   Name=Tally Order Exporter
+   Comment=Convert WooCommerce CSV exports to Tally XML import format
+   Exec=bash -c "cd ~/GitHub/gst-tally/ && uv run python tally_launcher.py"
+   Icon=accessories-calculator
+   Terminal=false
+   Categories=Office;Finance
+   ```
+
+3. **The shortcut should now appear in your applications menu** under Office or Finance categories.
+
+**Note**: Adjust the path in the `Exec` line to match where you installed the project.
 
 ## Technical Details
 
 ### WooCommerce Export Requirements
 
 Your CSV export must include these columns:
+
 - Order ID, Order Status, Order Date, Order Total
 - Billing First Name, Billing Last Name, Billing Phone, Billing Email Address
 - Billing Country, SKU, Quantity, Item Cost
@@ -180,6 +222,7 @@ Your CSV export must include these columns:
 - `"Configuration file not found"` → Ensure `config.yaml` exists in the project folder
 
 **Getting Help:**
+
 - Check the status messages in the converter window for specific error details
 - Ensure all product names match exactly across all configuration files
 - Verify that your WooCommerce export includes all required columns
