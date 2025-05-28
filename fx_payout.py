@@ -1,5 +1,6 @@
 import csv
 import glob
+import io
 import os
 import yaml
 from decimal import Decimal, InvalidOperation
@@ -7,15 +8,6 @@ from typing import Dict
 
 
 def extract_order_amounts_from_payout_csv(csv_file_path: str) -> Dict[str, Decimal]:
-    """
-    Extract order amounts from a single payment processor payout CSV file.
-
-    Args:
-        csv_file_path: Path to the payout CSV file
-
-    Returns:
-        Dictionary mapping WooCommerce Order ID to amount (always in INR)
-    """
     order_amounts = {}
     try:
         with open(csv_file_path, "r", encoding="utf-8") as f:
@@ -24,11 +16,12 @@ def extract_order_amounts_from_payout_csv(csv_file_path: str) -> Dict[str, Decim
         if len(sections) < 2:
             print(f"Warning: Expected two sections in {csv_file_path}, found only one")
             return order_amounts
-        transaction_lines = sections[1].strip().split("\n")
-        if not transaction_lines:
+        transaction_section = sections[1].strip()
+        transaction_lines = transaction_section.split("\n")
+        if len(transaction_lines) < 2:  # Need at least header + 1 data row
             print(f"Warning: No transaction data found in {csv_file_path}")
             return order_amounts
-        transaction_reader = csv.DictReader(transaction_lines)
+        transaction_reader = csv.DictReader(io.StringIO(transaction_section))
         for row in transaction_reader:
             try:
                 order_id_field = row.get("Order ID", "").strip()
