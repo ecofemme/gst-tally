@@ -200,10 +200,6 @@ def read_woo_csv(
                                         "country": country,
                                     }
                                 )
-                        else:
-                            print(
-                                f"Order {order_id}: Using WooCommerce amount {amount} INR"
-                            )
                         sales_data[order_id] = {
                             "date": sale_date,
                             "amount": amount,
