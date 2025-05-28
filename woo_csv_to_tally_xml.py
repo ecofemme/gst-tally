@@ -4,10 +4,10 @@ import glob
 import json
 import os
 import xml.etree.ElementTree as ET
+import yaml
 from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
-
-import yaml
+from fx_payout import load_all_order_amounts_from_config
 
 from ledger import get_gst_ledgers, get_party_ledger, get_sales_ledger
 
@@ -143,9 +143,12 @@ def round_decimal(value):
     return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
-def read_woo_csv(data_folder, csv_file, sku_mapping, tally_products, product_prices):
+def read_woo_csv(
+    data_folder, csv_file, sku_mapping, tally_products, product_prices, payout_amounts
+):
     file_path = os.path.join(data_folder, csv_file)
     sales_data = {}
+    missing_payout_orders = []
     try:
         with open(file_path, newline="", encoding="utf-8-sig") as f:
             reader = csv.DictReader(f)
@@ -166,13 +169,42 @@ def read_woo_csv(data_folder, csv_file, sku_mapping, tally_products, product_pri
                         customer_phone = row["Billing Phone"] or "N/A"
                         customer_email = row["Billing Email Address"] or "N/A"
                         amount = Decimal(row["Order Total"].replace(",", ""))
-                        shipping_cost = Decimal(row.get("Shipping Cost", "0").replace(",", ""))
+                        order_currency = row.get("Order Currency", "").strip()
+                        shipping_cost = Decimal(
+                            row.get("Shipping Cost", "0").replace(",", "")
+                        )
                         country = row["Billing Country"]
                         party_ledger = get_party_ledger(country)
                         is_domestic = country == "IN"
+                        if order_currency and order_currency != "INR":
+                            payout_amount = payout_amounts.get(order_id)
+                            if payout_amount:
+                                print(
+                                    f"Order {order_id}: Using payout amount {payout_amount} INR for {order_currency} order (WooCommerce total: {amount} {order_currency})"
+                                )
+                                amount = payout_amount
+                            else:
+                                print(
+                                    f"Warning: No payout amount found for foreign currency order {order_id} ({order_currency})"
+                                )
+                                missing_payout_orders.append(
+                                    {
+                                        "order_id": order_id,
+                                        "order_currency": order_currency,
+                                        "woo_amount": amount,
+                                        "customer_name": customer_name,
+                                        "order_date": row["Order Date"],
+                                        "country": country,
+                                    }
+                                )
+                        else:
+                            print(
+                                f"Order {order_id}: Using WooCommerce amount {amount} INR"
+                            )
                         sales_data[order_id] = {
                             "date": sale_date,
                             "amount": amount,
+                            "order_currency": order_currency,
                             "shipping_cost": shipping_cost,
                             "voucher_number": order_id,
                             "products": [],
@@ -263,13 +295,13 @@ def read_woo_csv(data_folder, csv_file, sku_mapping, tally_products, product_pri
                     print(
                         f"Error processing order {row.get('Order ID', 'unknown')}: {e}"
                     )
-        return list(sales_data.values())
+        return list(sales_data.values()), missing_payout_orders
     except FileNotFoundError:
         print(f"Error: File '{csv_file}' not found!")
-        return []
+        return [], []
     except Exception as e:
         print(f"Error reading CSV: {e}")
-        return []
+        return [], []
 
 
 def create_tally_xml(data_folder, sales_data, base_name="Sales"):
@@ -317,7 +349,9 @@ def create_tally_xml(data_folder, sales_data, base_name="Sales"):
         if sale["shipping_cost"] > Decimal("0"):
             shipping_amount = round_decimal(sale["shipping_cost"])
             shipping_entry = ET.SubElement(voucher, "LEDGERENTRIES.LIST")
-            ET.SubElement(shipping_entry, "LEDGERNAME").text = "Packing and Transport Charges Collected"
+            ET.SubElement(
+                shipping_entry, "LEDGERNAME"
+            ).text = "Packing and Transport Charges Collected"
             ET.SubElement(shipping_entry, "ISDEEMEDPOSITIVE").text = "No"
             ET.SubElement(shipping_entry, "AMOUNT").text = str(shipping_amount)
             total_entries_value += shipping_amount
@@ -406,6 +440,38 @@ def create_tally_xml(data_folder, sales_data, base_name="Sales"):
         return None
 
 
+def save_missing_payout_orders(data_folder, csv_file, missing_orders, config):
+    if not missing_orders:
+        return
+    base_name = os.path.basename(csv_file).replace(".csv", "")
+    woo_prefix = config.get("woo_prefix", "Orders-Export")
+    missing_prefix = config.get("missing_payout_prefix", "missing-payout")
+    if base_name.startswith(woo_prefix):
+        suffix = base_name.replace(woo_prefix, "")
+        missing_file = f"{missing_prefix}{suffix}.csv"
+    else:
+        missing_file = f"{missing_prefix}-{base_name}.csv"
+    missing_file_path = os.path.join(data_folder, missing_file)
+    try:
+        with open(missing_file_path, "w", newline="", encoding="utf-8") as f:
+            fieldnames = [
+                "order_id",
+                "order_currency",
+                "woo_amount",
+                "customer_name",
+                "order_date",
+                "country",
+            ]
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(missing_orders)
+        print(
+            f"Saved {len(missing_orders)} orders with missing payout amounts to: {missing_file}"
+        )
+    except Exception as e:
+        print(f"Error saving missing payout orders file: {e}")
+
+
 def main():
     print("WooCommerce CSV to Tally XML Converter with SKU-based Mapping")
     parser = argparse.ArgumentParser(
@@ -433,6 +499,8 @@ def main():
     tally_products = load_tally_products(tally_products_file)
     sku_mapping = load_sku_mapping(sku_mapping_file)
     product_prices = load_product_prices(product_prices_file)
+    print("\nLoading payout data...")
+    payout_amounts = load_all_order_amounts_from_config(args.config)
     if not tally_products:
         print("Failed to load Tally products. Exiting.")
         return
@@ -462,9 +530,16 @@ def main():
             skipped_count += 1
             continue
         print(f"\nProcessing {csv_file}...")
-        sales_data = read_woo_csv(
-            data_folder, csv_file, sku_mapping, tally_products, product_prices
+        sales_data, missing_payouts = read_woo_csv(
+            data_folder,
+            csv_file,
+            sku_mapping,
+            tally_products,
+            product_prices,
+            payout_amounts,
         )
+        if missing_payouts:
+            save_missing_payout_orders(data_folder, csv_file, missing_payouts, config)
         if sales_data:
             domestic_count = len([sale for sale in sales_data if sale["is_domestic"]])
             international_count = len(
