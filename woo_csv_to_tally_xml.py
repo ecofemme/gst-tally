@@ -173,6 +173,9 @@ def read_woo_csv(
                         shipping_cost = Decimal(
                             row.get("Shipping Cost", "0").replace(",", "")
                         )
+                        donation_amount = Decimal(
+                            row.get("Total Fee Amount", "0").replace(",", "")
+                        )
                         country = row["Billing Country"]
                         party_ledger = get_party_ledger(country)
                         is_domestic = country == "IN"
@@ -206,6 +209,7 @@ def read_woo_csv(
                             "amount": amount,
                             "order_currency": order_currency,
                             "shipping_cost": shipping_cost,
+                            "donation_amount": donation_amount,
                             "voucher_number": order_id,
                             "products": [],
                             "narration": f"Customer: {customer_name}, Phone: {customer_phone}, Email: {customer_email}",
@@ -355,6 +359,13 @@ def create_tally_xml(data_folder, sales_data, base_name="Sales"):
             ET.SubElement(shipping_entry, "ISDEEMEDPOSITIVE").text = "No"
             ET.SubElement(shipping_entry, "AMOUNT").text = str(shipping_amount)
             total_entries_value += shipping_amount
+        if sale["donation_amount"] > Decimal("0"):
+            donation_amount = round_decimal(sale["donation_amount"])
+            donation_entry = ET.SubElement(voucher, "LEDGERENTRIES.LIST")
+            ET.SubElement(donation_entry, "LEDGERNAME").text = "Pad for Pad scheme"
+            ET.SubElement(donation_entry, "ISDEEMEDPOSITIVE").text = "No"
+            ET.SubElement(donation_entry, "AMOUNT").text = str(donation_amount)
+            total_entries_value += donation_amount
 
         for product in sale["products"]:
             if not product["godown_name"]:
