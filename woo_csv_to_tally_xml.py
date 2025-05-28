@@ -168,24 +168,38 @@ def read_woo_csv(
                         )
                         customer_phone = row["Billing Phone"] or "N/A"
                         customer_email = row["Billing Email Address"] or "N/A"
-                        amount = Decimal(row["Order Total"].replace(",", ""))
+                        original_amount = Decimal(row["Order Total"].replace(",", ""))
                         order_currency = row.get("Order Currency", "").strip()
-                        shipping_cost = Decimal(
+                        original_shipping_cost = Decimal(
                             row.get("Shipping Cost", "0").replace(",", "")
                         )
-                        donation_amount = Decimal(
+                        original_donation_amount = Decimal(
                             row.get("Total Fee Amount", "0").replace(",", "")
                         )
                         country = row["Billing Country"]
                         party_ledger = get_party_ledger(country)
                         is_domestic = country == "IN"
+                        conversion_ratio = Decimal("1.0")
+                        final_amount = original_amount
+                        final_shipping_cost = original_shipping_cost
+                        final_donation_amount = original_donation_amount
                         if order_currency and order_currency != "INR":
                             payout_amount = payout_amounts.get(order_id)
                             if payout_amount:
-                                print(
-                                    f"Order {order_id}: Using payout amount {payout_amount} INR for {order_currency} order (WooCommerce total: {amount} {order_currency})"
+                                conversion_ratio = payout_amount / original_amount
+                                final_amount = payout_amount
+                                final_shipping_cost = (
+                                    original_shipping_cost * conversion_ratio
                                 )
-                                amount = payout_amount
+                                final_donation_amount = (
+                                    original_donation_amount * conversion_ratio
+                                )
+                                print(
+                                    f"Order {order_id}: Converting {order_currency} to INR"
+                                    f" (ratio: {conversion_ratio:.6f})"
+                                    f" - Original: {original_amount} {order_currency}"
+                                    f" - INR: {final_amount} INR"
+                                )
                             else:
                                 print(
                                     f"Warning: No payout amount found for foreign currency order {order_id} ({order_currency})"
@@ -194,7 +208,7 @@ def read_woo_csv(
                                     {
                                         "order_id": order_id,
                                         "order_currency": order_currency,
-                                        "woo_amount": amount,
+                                        "woo_amount": original_amount,
                                         "customer_name": customer_name,
                                         "order_date": row["Order Date"],
                                         "country": country,
@@ -202,10 +216,12 @@ def read_woo_csv(
                                 )
                         sales_data[order_id] = {
                             "date": sale_date,
-                            "amount": amount,
+                            "amount": final_amount,
+                            "original_amount": original_amount,
                             "order_currency": order_currency,
-                            "shipping_cost": shipping_cost,
-                            "donation_amount": donation_amount,
+                            "conversion_ratio": conversion_ratio,
+                            "shipping_cost": final_shipping_cost,
+                            "donation_amount": final_donation_amount,
                             "voucher_number": order_id,
                             "products": [],
                             "narration": f"Customer: {customer_name}, Phone: {customer_phone}, Email: {customer_email}",
@@ -215,7 +231,12 @@ def read_woo_csv(
                     sku = row["SKU"].strip() if "SKU" in row else ""
                     tally_names = get_tally_products_by_sku(sku, sku_mapping)
                     quantity = int(Decimal(row.get("Quantity", "1").replace(",", "")))
-                    item_cost = Decimal(row.get("Item Cost", "0").replace(",", ""))
+                    original_item_cost = Decimal(
+                        row.get("Item Cost", "0").replace(",", "")
+                    )
+                    converted_item_cost = (
+                        original_item_cost * sales_data[order_id]["conversion_ratio"]
+                    )
                     for tally_name in tally_names:
                         if tally_name in tally_products:
                             product_details = tally_products[tally_name]
@@ -245,12 +266,14 @@ def read_woo_csv(
                                     name: product_prices[name] for name in tally_names
                                 }
                                 total_normal_price = sum(normal_prices.values())
-                                discount_ratio = item_cost / total_normal_price
+                                discount_ratio = (
+                                    converted_item_cost / total_normal_price
+                                )
                                 product_base_cost = (
                                     normal_prices[tally_name] * discount_ratio
                                 )
                             else:
-                                product_base_cost = item_cost
+                                product_base_cost = converted_item_cost
                             base_rate = round_decimal(
                                 product_base_cost / (Decimal("1") + gst_rate)
                                 if gst_rate > Decimal("0")
@@ -285,6 +308,8 @@ def read_woo_csv(
                                     "sgst_amount": sgst_amount,
                                     "ledger_name": ledger_name,
                                     "godown_name": godown_name,
+                                    "original_item_cost": original_item_cost,
+                                    "converted_item_cost": converted_item_cost,
                                 }
                             )
                         else:
