@@ -166,12 +166,14 @@ def read_woo_csv(data_folder, csv_file, sku_mapping, tally_products, product_pri
                         customer_phone = row["Billing Phone"] or "N/A"
                         customer_email = row["Billing Email Address"] or "N/A"
                         amount = Decimal(row["Order Total"].replace(",", ""))
+                        shipping_cost = Decimal(row.get("Shipping Cost", "0").replace(",", ""))
                         country = row["Billing Country"]
                         party_ledger = get_party_ledger(country)
                         is_domestic = country == "IN"
                         sales_data[order_id] = {
                             "date": sale_date,
                             "amount": amount,
+                            "shipping_cost": shipping_cost,
                             "voucher_number": order_id,
                             "products": [],
                             "narration": f"Customer: {customer_name}, Phone: {customer_phone}, Email: {customer_email}",
@@ -311,6 +313,15 @@ def create_tally_xml(data_folder, sales_data, base_name="Sales"):
         ET.SubElement(party_entry, "AMOUNT").text = f"-{sale_amount}"
 
         total_entries_value = Decimal("0.0")
+
+        if sale["shipping_cost"] > Decimal("0"):
+            shipping_amount = round_decimal(sale["shipping_cost"])
+            shipping_entry = ET.SubElement(voucher, "LEDGERENTRIES.LIST")
+            ET.SubElement(shipping_entry, "LEDGERNAME").text = "Packing and Transport Charges Collected"
+            ET.SubElement(shipping_entry, "ISDEEMEDPOSITIVE").text = "No"
+            ET.SubElement(shipping_entry, "AMOUNT").text = str(shipping_amount)
+            total_entries_value += shipping_amount
+
         for product in sale["products"]:
             if not product["godown_name"]:
                 ledger_entry = ET.SubElement(voucher, "LEDGERENTRIES.LIST")
