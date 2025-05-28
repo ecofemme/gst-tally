@@ -12,61 +12,36 @@ def extract_order_amounts_from_payout_csv(csv_file_path: str) -> Dict[str, Decim
     try:
         with open(csv_file_path, "r", encoding="utf-8") as f:
             content = f.read()
-        
-        # Split by double newline to separate sections
-        sections = content.strip().split("\n\n")
-        if len(sections) < 2:
-            print(f"Warning: Expected two sections in {csv_file_path}, found only one")
+        transaction_start = content.find("Transaction Type,Order ID")
+        if transaction_start == -1:
+            print(f"Warning: Could not find transaction section in {csv_file_path}")
             return order_amounts
-        
-        # Get the transaction section (after the blank line)
-        transaction_section = sections[1].strip()
-        
+        transaction_section = content[transaction_start:].strip()
         if not transaction_section:
             print(f"Warning: Transaction section is empty in {csv_file_path}")
             return order_amounts
-        
-        # Debug: print first few lines of transaction section
-        print(f"Transaction section preview: {transaction_section[:200]}...")
-        
-        # Use csv.DictReader to properly parse the transaction section
-        import io
         transaction_reader = csv.DictReader(io.StringIO(transaction_section))
-        
-        # Debug: print headers found
-        print(f"Headers found: {transaction_reader.fieldnames}")
-        
         for row in transaction_reader:
             try:
                 order_id_field = row.get("Order ID", "").strip()
                 amount_str = row.get("Amount", "").strip()
-                
-                print(f"Processing row: Order ID='{order_id_field}', Amount='{amount_str}'")
-                
                 if not order_id_field or not amount_str:
                     continue
-                
-                # Extract WooCommerce order ID (remove suffix after underscore)
                 if "_" in order_id_field:
                     woo_order_id = order_id_field.split("_")[0]
                 else:
                     woo_order_id = order_id_field
-                
                 amount = Decimal(amount_str.replace(",", ""))
                 order_amounts[woo_order_id] = amount
-                print(f"Added order {woo_order_id}: {amount}")
-                
             except (InvalidOperation, ValueError) as e:
                 print(
                     f"Error processing transaction row for order {order_id_field} in {csv_file_path}: {e}"
                 )
                 continue
-                
     except FileNotFoundError:
         print(f"Error: Payout CSV file '{csv_file_path}' not found!")
     except Exception as e:
         print(f"Error reading payout CSV file {csv_file_path}: {e}")
-    
     return order_amounts
 
 
