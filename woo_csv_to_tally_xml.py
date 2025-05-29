@@ -173,9 +173,14 @@ def read_woo_csv(
                         original_shipping_cost = Decimal(
                             row.get("Shipping Cost", "0").replace(",", "")
                         )
-                        original_donation_amount = Decimal(
-                            row.get("Total Fee Amount", "0").replace(",", "")
-                        )
+                        total_fee_str = row.get("Total Fee Amount", "0").strip()
+                        if not total_fee_str:
+                            print(
+                                f"Warning: Blank Total Fee Amount for order {order_id}, defaulting to 0"
+                            )
+                            original_donation_amount = Decimal("0")
+                        else:
+                            original_donation_amount = Decimal(total_fee_str.replace(",", ""))
                         country = row["Billing Country"]
                         party_ledger = get_party_ledger(country)
                         is_domestic = country == "IN"
