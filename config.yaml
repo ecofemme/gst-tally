@@ -2,6 +2,7 @@ data_folder: ~/Woo Orders
 woo_prefix: Orders-Export
 tally_prefix: sales
 payout_prefix: PayoutTransactionSummary
+paypal_prefix: Download
 missing_payout_prefix: missing-payout
 tally_products_file: tally_products.csv
 sku_mapping_file: woo_sku_to_tally.json
