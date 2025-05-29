@@ -7,7 +7,7 @@ from cc_payout import load_all_ccavenue_order_amounts
 def load_all_order_amounts_from_config(
     config_file: str = "config.yaml",
 ) -> Dict[str, Decimal]:
-    paypal_order_amounts = load_all_paypal_order_amounts(config_file)
+    paypal_order_amounts = load_all_paypal_order_amounts(config_file)[0]
     ccavenue_order_amounts = load_all_ccavenue_order_amounts(config_file)
     all_order_amounts = {}
     all_order_amounts.update(paypal_order_amounts)
