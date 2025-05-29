@@ -45,7 +45,7 @@ def extract_order_amounts_from_payout_csv(csv_file_path: str) -> Dict[str, Decim
     return order_amounts
 
 
-def load_all_order_amounts_from_config(
+def load_all_ccavenue_order_amounts(
     config_file: str = "config.yaml",
 ) -> Dict[str, Decimal]:
     """
