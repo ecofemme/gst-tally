@@ -36,6 +36,7 @@ def extract_order_amounts_from_paypal_csv(csv_file_path: str) -> Tuple[Dict[str,
     try:
         with open(csv_file_path, 'r', encoding='utf-8-sig') as f:
             reader = csv.DictReader(f)
+            print(f"Headers in {csv_file_path}: {reader.fieldnames}")  # Debug: Log CSV headers
             
             for row in reader:
                 transaction_type = row.get('Type', '').strip()
@@ -48,9 +49,11 @@ def extract_order_amounts_from_paypal_csv(csv_file_path: str) -> Tuple[Dict[str,
                 
                 # Process Express Checkout Payments
                 if transaction_type == 'Express Checkout Payment' and status == 'Completed':
-                    invoice_number = row.get('Invoice Number', '').strip()
-                    if invoice_number and invoice_number.startswith('WC-'):
-                        order_id = invoice_number.replace('WC-', '')
+                    custom_number = row.get('Custom Number', '').strip()
+                    transaction_id = row.get('Transaction ID', '').strip()
+                    print(f"Raw Custom Number: '{custom_number}', Transaction ID: '{transaction_id}'")  # Debug
+                    if custom_number:
+                        order_id = custom_number
                         try:
                             gross_amount = Decimal(row.get('Gross', '0').replace(',', ''))
                             if gross_amount > 0 and currency != 'INR':
@@ -61,7 +64,7 @@ def extract_order_amounts_from_paypal_csv(csv_file_path: str) -> Tuple[Dict[str,
                                 payment_info = {
                                     'order_id': order_id,
                                     'gross_amount': gross_amount,
-                                    'transaction_id': row.get('Transaction ID', ''),
+                                    'transaction_id': transaction_id,
                                     'date': row.get('Date', ''),
                                     'currency': currency
                                 }
@@ -72,12 +75,12 @@ def extract_order_amounts_from_paypal_csv(csv_file_path: str) -> Tuple[Dict[str,
                                     'currency': currency,
                                     'gross_amount': str(gross_amount),
                                     'inr_amount': 'Pending',
-                                    'transaction_id': row.get('Transaction ID', ''),
+                                    'transaction_id': transaction_id,
                                     'date': row.get('Date', ''),
                                     'status': 'Pending Conversion'
                                 })
                         except (InvalidOperation, ValueError) as e:
-                            print(f"Error parsing amount for order {invoice_number}: {e}")
+                            print(f"Error parsing amount for order {order_id}: {e}")
                 
                 # Process User Initiated Withdrawals
                 elif transaction_type == 'User Initiated Withdrawal' and currency == 'INR':
@@ -125,9 +128,9 @@ def extract_order_amounts_from_paypal_csv(csv_file_path: str) -> Tuple[Dict[str,
                 
                 # Process Payment Reversals
                 elif transaction_type == 'Payment Reversal':
-                    invoice_number = row.get('Invoice Number', '').strip()
-                    if invoice_number and invoice_number.startswith('WC-'):
-                        order_id = invoice_number.replace('WC-', '')
+                    custom_number = row.get('Custom Number', '').strip()
+                    if custom_number:
+                        order_id = custom_number
                         refunded_orders.add(order_id)
                         # Remove from order_amounts if it exists
                         if order_id in order_amounts:
