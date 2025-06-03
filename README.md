@@ -161,7 +161,7 @@ Travel pouch,12%,Eco Femme
 1. **Download the project**:
 
    ```bash
-   git clone https://github.com/aurovilledotcom/gst-tally.git
+   git clone https://github.com/ecofemme/gst-tally.git
    cd gst-tally
    ```
 
