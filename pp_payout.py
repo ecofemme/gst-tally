@@ -46,9 +46,6 @@ def extract_order_amounts_from_paypal_csv(
                 ):
                     custom_number = row.get("Custom Number", "").strip()
                     transaction_id = row.get("Transaction ID", "").strip()
-                    print(
-                        f"Raw Custom Number: '{custom_number}', Transaction ID: '{transaction_id}'"
-                    )  # Debug
                     if custom_number:
                         order_id = custom_number
                         try:
