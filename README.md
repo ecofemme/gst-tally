@@ -313,7 +313,9 @@ Your CSV export must include these columns:
 - Order ID, Order Status, Order Date, Order Total, Order Currency
 - Billing First Name, Billing Last Name, Billing Phone, Billing Email Address
 - Billing Country, SKU, Quantity, Item Cost
-- Shipping Cost, Total Fee Amount (for donations)
+- Shipping Cost, Total Fee Amount, Fee Amount (per surcharge)
+
+**Note**: The "Fee Amount (per surcharge)" column must be included to ensure "Total Fee Amount" exports correctly, even though it's not used in processing.
 
 ### Processing Logic
 
