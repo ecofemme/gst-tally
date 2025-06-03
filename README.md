@@ -132,7 +132,7 @@ Tally Name,Normal Price
 SHE cups,950
 ```
 
-_Note: This only affects bundled products. Single products use WooCommerce prices directly._
+_Note: Price changes only affect products that appear as components in bundled products. Single products always use the actual WooCommerce order price._
 
 ### When GST Rates Change
 
@@ -321,7 +321,10 @@ Your CSV export must include these columns:
 
 - **Domestic orders** (India): Calculate CGST and SGST based on product GST rates
 - **International orders**: Use "Export Sales" ledger with zero GST
-- **Bundled products**: Distribute bundle price proportionally based on standard prices
+- **Products with Godown names**: Treated as inventory items in Tally with stock tracking
+- **Products without Godown names**: Treated as regular ledger entries (services/non-inventory items)
+- **Bundled products**: Individual component prices from `tally_product_prices.csv` are used to distribute the total bundle cost proportionally
+- **Single products**: Use the actual price from WooCommerce orders directly
 - **Currency conversion**: Apply actual exchange rates from payment gateway data
 - **Rounding**: Automatic rounding adjustments to match order totals
 
