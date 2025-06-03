@@ -4,6 +4,8 @@ A tool to convert WooCommerce order exports to Tally-compatible XML import files
 
 ## Day-to-Day Usage
 
+**Note**: These instructions assume you're processing orders once per month. Adjust date ranges accordingly if you process more or less frequently.
+
 ### Step 1: Export Payment Gateway Data (for Foreign Currency Orders)
 
 The converter automatically handles currency conversion using actual payout amounts from payment gateways.
@@ -37,7 +39,7 @@ The converter automatically handles currency conversion using actual payout amou
 
 1. In your WooCommerce admin, go to **WooCommerce > Orders**
 2. Click **Export** at the top of the orders list
-3. Select the date range for orders you want to process
+3. Select the date range for the month you want to process
 4. Make sure **Order Status** is set to "Completed" only
 5. Export and save the file with a name starting with `Orders-Export` (e.g., `Orders-Export-January-2025.csv`)
 6. Place the CSV file in your configured data folder (default: `~/Woo Orders`)
