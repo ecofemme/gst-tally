@@ -4,7 +4,7 @@ A tool to convert WooCommerce order exports to Tally-compatible XML import files
 
 ## Day-to-Day Usage
 
-**Note**: These instructions assume you're processing orders once per month. Adjust date ranges accordingly if you process more or less frequently.
+**Note**: These instructions assume you're processing orders once per month. Export interface details are current as of June 3, 2025 and may change with plugin/platform updates.
 
 ### Step 1: Export Payment Gateway Data (for Foreign Currency Orders)
 
