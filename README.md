@@ -37,12 +37,21 @@ The converter automatically handles currency conversion using actual payout amou
 
 ### Step 2: Export Orders from WooCommerce
 
-1. In your WooCommerce admin, go to **WooCommerce > Orders**
-2. Click **Export** at the top of the orders list
-3. Select the date range for the month you want to process
-4. Make sure **Order Status** is set to "Completed" only
-5. Export and save the file with a name starting with `Orders-Export` (e.g., `Orders-Export-January-2025.csv`)
-6. Place the CSV file in your configured data folder (default: `~/Woo Orders`)
+1. In your WordPress admin, go to **All Export** in the sidebar and click **New Export**
+2. Make sure **Specific Post Type** is selected
+3. In the dropdown "Choose a post type", select **WooCommerce Orders**
+4. Click **Add Filtering Options**
+5. Set up date range filters:
+   - **First filter**: Select "Order Date" as element, "newer than" as rule, and enter start date (e.g., "06/01/2025")
+   - Click **Add Rule**
+   - **Second filter**: Select "Order Date" as element, "older than" as rule, and enter end date (e.g., "06/30/2025")
+   - Click **Add Rule**
+6. Click **Customize Export File**
+7. On the next page, select the template **"Order by SKU"** (which has all required fields pre-selected)
+8. Hit **Continue**
+9. **Confirm and Run Export**
+10. Save the exported file with a name starting with `Orders-Export` (e.g., `Orders-Export-June-2025.csv`)
+11. Place the CSV file in your configured data folder (default: `~/Woo Orders`)
 
 ### Step 3: Run the Converter
 
