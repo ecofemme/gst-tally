@@ -219,6 +219,9 @@ def read_woo_csv(
                                         "country": country,
                                     }
                                 )
+                        narration_parts = [f"Customer: {customer_name}", f"Phone: {customer_phone}", f"Email: {customer_email}"]
+                        if order_currency and order_currency != "INR":
+                            narration_parts.append(f"FX Rate: {conversion_ratio:.6f} ({order_currency} to INR)")
                         sales_data[order_id] = {
                             "date": sale_date,
                             "amount": final_amount,
@@ -229,7 +232,7 @@ def read_woo_csv(
                             "donation_amount": final_donation_amount,
                             "voucher_number": order_id,
                             "products": [],
-                            "narration": f"Customer: {customer_name}, Phone: {customer_phone}, Email: {customer_email}",
+                            "narration": ", ".join(narration_parts),
                             "party_ledger": party_ledger,
                             "is_domestic": is_domestic,
                         }
