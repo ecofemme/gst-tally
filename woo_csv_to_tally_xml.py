@@ -11,6 +11,15 @@ from fx_payout import load_all_order_amounts_from_config
 
 from ledger import get_gst_ledgers, get_party_ledger, get_sales_ledger
 
+def safe_decimal_conversion(value, field_name="field", default="0"):
+    if not value or not value.strip():
+        return Decimal(default)
+    try:
+        return Decimal(value.replace(",", ""))
+    except (InvalidOperation, ValueError) as e:
+        print(f"Warning: Invalid {field_name} value '{value}', using {default}")
+        return Decimal(default)
+
 
 def load_config(config_file="config.yaml"):
     if not os.path.exists(config_file):
@@ -168,10 +177,12 @@ def read_woo_csv(
                         )
                         customer_phone = row["Billing Phone"] or "N/A"
                         customer_email = row["Billing Email Address"] or "N/A"
-                        original_amount = Decimal(row["Order Total"].replace(",", ""))
+                        original_amount = safe_decimal_conversion(
+                            row["Order Total"], "Order Total"
+                        )
                         order_currency = row.get("Order Currency", "").strip()
-                        original_shipping_cost = Decimal(
-                            row.get("Shipping Cost", "0").replace(",", "")
+                        original_shipping_cost = safe_decimal_conversion(
+                            row.get("Shipping Cost", ""), "Shipping Cost"
                         )
                         total_fee_str = row.get("Total Fee Amount", "0").strip()
                         if not total_fee_str:
@@ -180,7 +191,9 @@ def read_woo_csv(
                             )
                             original_donation_amount = Decimal("0")
                         else:
-                            original_donation_amount = Decimal(total_fee_str.replace(",", ""))
+                            original_donation_amount = safe_decimal_conversion(
+                                row.get("Total Fee Amount", ""), "Total Fee Amount"
+                            )
                         country = row["Billing Country"]
                         party_ledger = get_party_ledger(country)
                         is_domestic = country == "IN"
@@ -220,9 +233,15 @@ def read_woo_csv(
                                     }
                                 )
                                 continue
-                        narration_parts = [f"Customer: {customer_name}", f"Phone: {customer_phone}", f"Email: {customer_email}"]
+                        narration_parts = [
+                            f"Customer: {customer_name}",
+                            f"Phone: {customer_phone}",
+                            f"Email: {customer_email}",
+                        ]
                         if order_currency and order_currency != "INR":
-                            narration_parts.append(f"FX Rate: {conversion_ratio:.6f} ({order_currency} to INR)")
+                            narration_parts.append(
+                                f"FX Rate: {conversion_ratio:.6f} ({order_currency} to INR)"
+                            )
                         sales_data[order_id] = {
                             "date": sale_date,
                             "amount": final_amount,
@@ -239,9 +258,13 @@ def read_woo_csv(
                         }
                     sku = row["SKU"].strip() if "SKU" in row else ""
                     tally_names = get_tally_products_by_sku(sku, sku_mapping)
-                    quantity = int(Decimal(row.get("Quantity", "1").replace(",", "")))
-                    original_item_cost = Decimal(
-                        row.get("Item Cost", "0").replace(",", "")
+                    quantity = int(
+                        safe_decimal_conversion(
+                            row.get("Quantity", ""), "Quantity", "1"
+                        )
+                    )
+                    original_item_cost = safe_decimal_conversion(
+                        row.get("Item Cost", ""), "Item Cost"
                     )
                     converted_item_cost = (
                         original_item_cost * sales_data[order_id]["conversion_ratio"]
@@ -329,6 +352,7 @@ def read_woo_csv(
                     print(
                         f"Error processing order {row.get('Order ID', 'unknown')}: {e}"
                     )
+                    print(f"  Row data: {dict(row)}")
         return list(sales_data.values()), missing_payout_orders
     except FileNotFoundError:
         print(f"Error: File '{csv_file}' not found!")
