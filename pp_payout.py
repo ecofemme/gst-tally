@@ -1,9 +1,13 @@
 import csv
 import glob
+import logging
 import os
 import yaml
 from decimal import Decimal, InvalidOperation
 from typing import Dict, List, Set, Tuple
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+logger = logging.getLogger(__name__)
 
 
 def extract_order_amounts_from_paypal_csv(
@@ -28,12 +32,12 @@ def extract_order_amounts_from_paypal_csv(
     order_amounts = {}
     pending_payments = {}
     refunded_orders = set()
-    order_details = []  # List to store detailed order info for verification
+    order_details = []
     pending_withdrawal = None
     try:
         with open(csv_file_path, "r", encoding="utf-8-sig") as f:
             reader = csv.DictReader(f)
-            print(f"Headers in {csv_file_path}: {reader.fieldnames}")
+            logger.debug("Headers in %s: %s", csv_file_path, reader.fieldnames)
             for row in reader:
                 transaction_type = row.get("Type", "").strip()
                 currency = row.get("Currency", "").strip()

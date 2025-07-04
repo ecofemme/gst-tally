@@ -2,6 +2,7 @@ import argparse
 import csv
 import glob
 import json
+import logging
 import os
 import xml.etree.ElementTree as ET
 import yaml
@@ -10,6 +11,9 @@ from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from fx_payout import load_all_order_amounts_from_config
 
 from ledger import get_gst_ledgers, get_party_ledger, get_sales_ledger
+
+logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+logger = logging.getLogger(__name__)
 
 def safe_decimal_conversion(value, field_name="field", default="0"):
     if not value or not value.strip():
@@ -63,7 +67,7 @@ def load_tally_products(tally_products_file):
     try:
         with open(tally_products_file, newline="", encoding="utf-8") as f:
             reader = csv.DictReader(f)
-            print("Tally Products CSV Headers Found:", reader.fieldnames)
+            logger.debug("Tally Products CSV Headers Found: %s", reader.fieldnames)
             for row in reader:
                 tally_name = row["Tally Name"].strip()
                 gst_percentage = row["GST Percentage"].strip()
@@ -88,7 +92,7 @@ def load_product_prices(product_prices_file):
     try:
         with open(product_prices_file, newline="", encoding="utf-8") as f:
             reader = csv.DictReader(f)
-            print("Product Prices CSV Headers Found:", reader.fieldnames)
+            logger.debug("Product Prices CSV Headers Found: %s", reader.fieldnames)
             required_fields = ["Tally Name", "Normal Price"]
             missing_fields = [
                 field for field in required_fields if field not in reader.fieldnames
@@ -161,7 +165,7 @@ def read_woo_csv(
     try:
         with open(file_path, newline="", encoding="utf-8-sig") as f:
             reader = csv.DictReader(f)
-            print("CSV Headers Found:", reader.fieldnames)
+            logger.debug("CSV Headers Found: %s", reader.fieldnames)
             for row in reader:
                 try:
                     if row["Order Status"].lower() != "wc-completed":
@@ -545,7 +549,12 @@ def main():
     parser.add_argument(
         "-c", "--config", default="config.yaml", help="Path to configuration file"
     )
+    parser.add_argument(
+        "-v", "--verbose", action="store_true", help="Enable verbose debug output"
+    )
     args = parser.parse_args()
+    if args.verbose:
+        logging.getLogger().setLevel(logging.DEBUG)
     config = load_config(args.config)
     if not config:
         return
