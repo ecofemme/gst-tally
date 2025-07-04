@@ -42,9 +42,9 @@ The converter automatically handles currency conversion using actual payout amou
 3. In the dropdown "Choose a post type", select **WooCommerce Orders**
 4. Click **Add Filtering Options**
 5. Set up date range filters:
-   - **First filter**: Select "Order Date" as element, "newer than" as rule, and enter start date (e.g., "06/01/2025")
+   - **First filter**: Select "Order Date" as element, "equal to or newer than" as rule, and enter start date (e.g., "06/01/2025")
    - Click **Add Rule**
-   - **Second filter**: Select "Order Date" as element, "older than" as rule, and enter end date (e.g., "06/30/2025")
+   - **Second filter**: Select "Order Date" as element, "equal to or older than" as rule, and enter end date (e.g., "06/30/2025")
    - Click **Add Rule**
 6. Click **Customize Export File**
 7. On the next page, select the template **"Order by SKU"** (which has all required fields pre-selected)
