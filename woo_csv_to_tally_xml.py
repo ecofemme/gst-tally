@@ -219,6 +219,7 @@ def read_woo_csv(
                                         "country": country,
                                     }
                                 )
+                                continue
                         narration_parts = [f"Customer: {customer_name}", f"Phone: {customer_phone}", f"Email: {customer_email}"]
                         if order_currency and order_currency != "INR":
                             narration_parts.append(f"FX Rate: {conversion_ratio:.6f} ({order_currency} to INR)")
