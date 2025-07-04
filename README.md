@@ -12,6 +12,8 @@ The converter automatically handles currency conversion using actual payout amou
 
 #### CCAvenue Export
 
+NOTE THAT CCAVENUE PAYOUTS ARE SOMETIMES DELAYED BY SEVERAL DAYS. YOU MAY NEED TO INCLUDE A FEW DAYS AFTER THE END OF THE MONTH TO ENSURE ALL PAYOUTS ARE INCLUDED.
+
 1. Log into the CCAvenue dashboard
 2. Go to **Reports** and select **Payment Summary**
 3. Click the **Search icon** and select dates for the first half of the month (e.g., 1st - 15th)
