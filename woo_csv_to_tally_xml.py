@@ -198,7 +198,7 @@ def read_woo_csv(
                             original_donation_amount = safe_decimal_conversion(
                                 row.get("Total Fee Amount", ""), "Total Fee Amount"
                             )
-                        country = row["Billing Country"]
+                        country = row["Shipping Country"]
                         party_ledger = get_party_ledger(country)
                         is_domestic = country == "IN"
                         conversion_ratio = Decimal("1.0")
